@@ -43,10 +43,16 @@ if (isset($sIndex)) {
 
     foreach (preg_split("/((\r?\n)|(\r\n?))/", $data) as $line) {
         [$vType, $vId, $vIf] = array_map('trim', explode(',', $line));
-        $vName = 'Vlan_' . $vId;
+
+        if ($vType == 'N') {
+            $vlanNames[$vId] = $vIf;
+            continue;
+        }
 
         if ($oldId != $vId) {
             $oldId = $vId;
+
+            $vName = $vlanNames[$vId] ?? 'Vlan_' . $vId;
 
             //add vlan ID to $device array
             $device['vlans'][1][$vId] = $vId;
@@ -59,6 +65,7 @@ if (isset($sIndex)) {
                 'vlan_domain' => 1,
                 'vlan_name' => $vName,
             ]);
+            $vlan->vlan_name = $vName;
 
             if ($vlan->isDirty('vlan_name')) {
                 \App\Models\Eventlog::log("Vlan id: $vId changed name to: $vName from " . $vlan->getOriginal('vlan_name'), $device['device_id'], 'vlan', Severity::Warning);

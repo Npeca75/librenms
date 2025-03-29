@@ -42,6 +42,8 @@ modules:
                         - TPLINK-DDMTXPOWTHRESHOLD-MIB::ddmTxPowThresholdLowWarn
                         - TPLINK-DDMTXPOWTHRESHOLD-MIB::ddmTxPowThresholdHighAlarm
                         - TPLINK-DDMTXPOWTHRESHOLD-MIB::ddmTxPowThresholdHighWarn
+                        - LLDP-MIB::lldpLocPortTable
+                        - TPLINK-POWER-OVER-ETHERNET-MIB::tpPoePortConfigTable
         current:
             data:
                 -
@@ -114,8 +116,45 @@ modules:
                     divisor: 10
                     index: tpSystemPowerLimit
                     group: PoE
+                -
+                    oid: tpPoePortConfigTable
+                    num_oid: '.1.3.6.1.4.1.11863.6.56.1.1.2.1.1.7.{{ $index }}'
+                    value: tpPoePower
+                    descr: '{{ $LLDP-MIB::lldpLocPortDesc }}'
+                    divisor: 10
+                    entPhysicalIndex: '{{ $index }}'
+                    entPhysicalIndex_measured: ports
+                    group: PoE_Ports
+                    index: 'tpPoePower.{{ $index }}'
+                    high_limit: TPLINK-POWER-OVER-ETHERNET-MIB::tpPoePowerLimit
+                    skip_values:
+                        -
+                            oid: tpPoePowerStatus
+                            op: '='
+                            value: 0
         state:
             data:
+                -
+                    oid: tpPoePortConfigTable
+                    num_oid: '.1.3.6.1.4.1.11863.6.56.1.1.2.1.1.11.{{ $index }}'
+                    value: tpPoePowerStatus
+                    descr: '{{ $LLDP-MIB::lldpLocPortDesc }}'
+                    entPhysicalIndex: '{{ $index }}'
+                    entPhysicalIndex_measured: ports
+                    group: PoE_Ports
+                    index: 'tpPoePowerStatus.{{ $index }}'
+                    states:
+                        - {value: 0, generic: 3, graph: 1, descr: 'Off'}
+                        - {value: 1, generic: 1, graph: 1, descr: 'Turning-on'}
+                        - {value: 2, generic: 0, graph: 1, descr: 'On'}
+                        - {value: 3, generic: 2, graph: 1, descr: 'Overload'}
+                        - {value: 4, generic: 2, graph: 1, descr: 'Short'}
+                        - {value: 5, generic: 1, graph: 1, descr: 'Nonstandard'}
+                        - {value: 6, generic: 2, graph: 1, descr: 'VoltageHigh'}
+                        - {value: 7, generic: 2, graph: 1, descr: 'VoltageLow'}
+                        - {value: 8, generic: 2, graph: 1, descr: 'HardwareFault'}
+                        - {value: 9, generic: 2, graph: 1, descr: 'OverTemperature'}
+                    state_name: tpPoePowerStatus
                 -
                     oid: TPLINK-DDMSTATUS-MIB::ddmStatusTable
                     num_oid: '.1.3.6.1.4.1.11863.6.96.1.7.1.1.7.{{ $index }}'

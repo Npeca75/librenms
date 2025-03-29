@@ -72,6 +72,7 @@ if ($vlanversion == 'version1' || $vlanversion == '2') {
     foreach ($jet_vlanDb as $jet_vlan_id => $jet_vlan_data) {
         d_echo(" $jet_vlan_id ");
 
+        $jet_vlan_data['dot1qVlanDescription'] = ($jet_vlan_data['dot1qVlanDescription'] == 'System-VLAN') ? 'Vlan_1' : $jet_vlan_data['dot1qVlanDescription'];
         if (isset($vlans_db[$vtpdomain_id][$jet_vlan_id]) && is_array($vlans_db[$vtpdomain_id][$jet_vlan_id])) {
             $vlan_data = $vlans_db[$vtpdomain_id][$jet_vlan_id];
 

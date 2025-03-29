@@ -26,3 +26,6 @@ discovery:
 ignore_mount_regexp:
     - '#^/run($|/)#'
     - '#^/dev/shm$#'
+oids:
+    no_bulk:
+        - NET-SNMP-EXTEND-MIB::nsExtendStatus

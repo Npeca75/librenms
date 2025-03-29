@@ -1,0 +1,1601 @@
+diff --git a/.gitignore b/.gitignore
+index f64201502..cf6a17549 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -19,7 +19,6 @@ __pycache__
+ Thumbs.db
+ config.php
+ html/css/custom/*
+-html/images/custom/*
+ html/images/custommap/*
+ includes/custom/*
+ junk
+diff --git a/LibreNMS/Enum/PowerState.php b/LibreNMS/Enum/PowerState.php
+index a6ac43743..fd7f25239 100644
+--- a/LibreNMS/Enum/PowerState.php
++++ b/LibreNMS/Enum/PowerState.php
+@@ -31,6 +31,7 @@ abstract class PowerState
+         'powered off' => self::OFF,
+         'poweredoff' => self::OFF,
+         'shut off' => self::OFF,
++        'stopped' => self::OFF,
+ 
+         'powered on' => self::ON,
+         'poweredon' => self::ON,
+diff --git a/LibreNMS/OS/Jetdirect.php b/LibreNMS/OS/Jetdirect.php
+index 3021d2706..f7538e57e 100644
+--- a/LibreNMS/OS/Jetdirect.php
++++ b/LibreNMS/OS/Jetdirect.php
+@@ -20,30 +20,114 @@
+  *
+  * @package    LibreNMS
+  * @link       https://www.librenms.org
+- * @copyright  2020 Tony Murray
+- * @author     Tony Murray <murraytony@gmail.com>
++ * @copyright  2024 Peca Nesovanovic
++ * @author     peca.nesovanovic@sattrakt.com
+  */
+ 
+ namespace LibreNMS\OS;
+ 
+ use App\Models\Device;
++use App\Models\Location;
++use Illuminate\Support\Str;
+ 
+ class Jetdirect extends \LibreNMS\OS\Shared\Printer
+ {
+     public function discoverOS(Device $device): void
+     {
+         parent::discoverOS($device); // yaml
+-        $device = $this->getDevice();
+-
+-        $info = $this->parseDeviceId(snmp_get($this->getDeviceArray(), '.1.3.6.1.4.1.11.2.3.9.1.1.7.0', '-OQv'));
+-        $hardware = $info['MDL'] ?? $info['MODEL'] ?? $info['DES'] ?? $info['DESCRIPTION'] ?? null;
+-        if (! empty($hardware)) {
+-            $hardware = str_ireplace([
+-                'HP ',
+-                'Hewlett-Packard ',
+-                ' Series',
+-            ], '', $hardware);
+-            $device->hardware = ucfirst($hardware);
++
++        $snmpGet = [
++            'version1' => 'HP-LASERJET-COMMON-MIB::fw-rom-revision.0',
++            'version2' => 'HP-LASERJET-COMMON-MIB::fw-rom-datecode.0',
++            'serial1' => 'HP-LASERJET-COMMON-MIB::serial-number.0',
++            'hardware1' => 'HP-LASERJET-COMMON-MIB::model-name.0',
++            'contact1' => 'HP-LASERJET-COMMON-MIB::system-contact.0',
++            'contact2' => 'Printer-MIB::prtGeneralCurrentOperator.1',
++            'features1' => 'HP-LASERJET-COMMON-MIB::mio1-manufacturing-info.0',
++            'features2' => 'HP-LASERJET-COMMON-MIB::mio2-manufacturing-info.0',
++            'features3' => 'HP-LASERJET-COMMON-MIB::mio3-manufacturing-info.0',
++            'features4' => 'HP-LASERJET-COMMON-MIB::mio4-manufacturing-info.0',
++        ];
++
++        foreach ($snmpGet as $name => $oid) {
++            $values[$name] = preg_replace('/[\x00-\x1F\x7F-\xFF]/', '', \SnmpQuery::get($oid)->value());
++        }
++
++        $ver1 = explode(' ', $values['version1'])[0];
++        $device->version = (empty($ver1)) ? $values['version2'] : $ver1;
++
++        $device->serial = $values['serial1'];
++
++        $device->hardware = $values['hardware1'];
++
++        $device->sysContact = $device->sysContact ?: $values['contact1'];
++        $device->sysContact = $device->sysContact ?: $values['contact2'];
++
++        //features
++        for ($f = 1; $f < 5; $f++) {
++            if (! empty($values['features' . $f])) {
++                $tmp = preg_replace('/[\x00-\x1F\x7F-\xFF]/', '', hex2str(str_replace(' ', '', trim(strtoupper($values['features' . $f])))));
++                if (Str::contains($tmp, 'Revision')) {
++                    $device->features = $tmp;
++                    break;
++                }
++            }
++        }
++
++        $this->customSysName($device);
++
++    }
++
++
++    public function pollOS(DataStorageInterface $datastore): void
++    {
++        $this->customSysName($this->getDevice());
++    }
++
++    public function fetchLocation(): Location
++    {
++        $location = parent::fetchLocation();
++        if (empty($location->location)) {
++            $value = preg_replace('/[\x00-\x1F\x7F-\xFF]/', '', \SnmpQuery::get('HP-LASERJET-COMMON-MIB::device-location.0')->value());
++            preg_match('/^(\S+)\s\[{0,1}(\d+\.\d+),\s{0,1}(\d+\.\d+)\]{0,1}/', $value, $tmp);
++            $location->location = str_replace(', ', ',', $tmp[0]);
++            $location->lat = $tmp[2];
++            $location->lng = $tmp[3];
++        }
++
++        return $location;
++    }
++
++
++    private function customSysName(Device $device): void
++    {
++        $snmpGet = [
++            'location1' => 'HP-LASERJET-COMMON-MIB::device-location.0',
++            'domain1' => '.1.3.6.1.4.1.11.2.4.3.5.16.0',
++            'domain2' => '.1.3.6.1.4.1.11.2.4.3.5.49.0',
++            'domain3' => '.1.3.6.1.4.1.236.11.5.1.12.2.21.0',
++        ];
++
++        foreach ($snmpGet as $name => $oid) {
++            $values[$name] = preg_replace('/[\x00-\x1F\x7F-\xFF]/', '', \SnmpQuery::get($oid)->value());
++        }
++
++        if ($device->hardware == 'HP LaserJet Pro MFP M26nw') {
++            $device->sysName = $values['location1'];
++        } else {
++            unset($domain);
++            for ($f = 1; $f < 4; $f++) {
++                if (! empty($values['domain' . $f])) {
++                    $domain = $values['domain' . $f];
++                    break;
++                }
++            }
++            // last resort
++            if (empty($domain)) {
++                $domain = 'prn.' . strtolower(explode(' ', $device->location)[0]);
++            }
++            $device->sysName = $device->sysName . '.' . $domain;
+         }
+     }
++
+ }
+diff --git a/LibreNMS/OS/Jetstream.php b/LibreNMS/OS/Jetstream.php
+index 67f9976e8..09995fde2 100644
+--- a/LibreNMS/OS/Jetstream.php
++++ b/LibreNMS/OS/Jetstream.php
+@@ -15,7 +15,7 @@ class Jetstream extends OS implements Ipv6AddressDiscovery
+ {
+     public function discoverIpv6Addresses(): Collection
+     {
+-        return \SnmpQuery::enumStrings()->walk('TPLINK-IPV6ADDR-MIB::ipv6ParaConfigAddrTable')
++        return \SnmpQuery::allowUnordered()->enumStrings()->walk('TPLINK-IPV6ADDR-MIB::ipv6ParaConfigAddrTable')
+             ->mapTable(function ($data, $ipv6ParaConfigIfIndex, $ipv6ParaConfigAddrType, $ipv6ParaConfigSourceType, $ipv6ParaConfigAddress) {
+                 try {
+                     $ip = IPv6::fromHexString($data['TPLINK-IPV6ADDR-MIB::ipv6ParaConfigAddress']);
+diff --git a/LibreNMS/OS/Openwrt.php b/LibreNMS/OS/Openwrt.php
+index 182af4f28..b4c65a8f1 100644
+--- a/LibreNMS/OS/Openwrt.php
++++ b/LibreNMS/OS/Openwrt.php
+@@ -18,8 +18,8 @@
+  *
+  * @link       https://www.librenms.org
+  *
+- * @copyright  2017 Tony Murray
+- * @author     Tony Murray <murraytony@gmail.com>
++ * @copyright  2023 Peca Nesovanovic
++ * @author     Peca Nesovanovic <peca.nesovanovic@sattrakt.com>
+  */
+ 
+ namespace LibreNMS\OS;
+@@ -27,146 +27,130 @@ namespace LibreNMS\OS;
+ use App\Models\Device;
+ use LibreNMS\Device\WirelessSensor;
+ use LibreNMS\Interfaces\Discovery\OSDiscovery;
++use LibreNMS\Interfaces\Discovery\Sensors\WirelessApCountDiscovery;
++use LibreNMS\Interfaces\Discovery\Sensors\WirelessCcqDiscovery;
+ use LibreNMS\Interfaces\Discovery\Sensors\WirelessClientsDiscovery;
+ use LibreNMS\Interfaces\Discovery\Sensors\WirelessFrequencyDiscovery;
+-use LibreNMS\Interfaces\Discovery\Sensors\WirelessNoiseFloorDiscovery;
+-use LibreNMS\Interfaces\Discovery\Sensors\WirelessRateDiscovery;
+-use LibreNMS\Interfaces\Discovery\Sensors\WirelessSnrDiscovery;
++use LibreNMS\Interfaces\Discovery\Sensors\WirelessPowerDiscovery;
+ use LibreNMS\OS;
++use LibreNMS\Util\Oid;
+ 
+ class Openwrt extends OS implements
+     OSDiscovery,
+     WirelessClientsDiscovery,
+     WirelessFrequencyDiscovery,
+-    WirelessNoiseFloorDiscovery,
+-    WirelessRateDiscovery,
+-    WirelessSnrDiscovery
++    WirelessPowerDiscovery,
++    WirelessCcqDiscovery,
++    WirelessApCountDiscovery
+ {
+     /**
+      * Retrieve basic information about the OS / device
+      */
+     public function discoverOS(Device $device): void
+     {
+-        [, $device->version] = explode(' ', snmp_get($this->getDeviceArray(), 'NET-SNMP-EXTEND-MIB::nsExtendOutput1Line."distro"', '-Osqnv'));
++        $device->version = explode(' ', snmp_get($this->getDeviceArray(), 'NET-SNMP-EXTEND-MIB::nsExtendOutput1Line."distro"', '-Osqnv'))[1];
+         $device->hardware = snmp_get($this->getDeviceArray(), 'NET-SNMP-EXTEND-MIB::nsExtendOutput1Line."hardware"', '-Osqnv');
++        $device->features = snmp_get($this->getDeviceArray(), 'NET-SNMP-EXTEND-MIB::nsExtendOutput1Line."features"', '-Osqnv');
+     }
+ 
+-    /**
+-     * Retrieve (and explode to array) list of network interfaces, and desired display name in LibreNMS.
+-     * This information is returned from the wireless device (router / AP) - as SNMP extend, with the name "interfaces".
+-     *
+-     * @return array Interfaces
+-     */
+-    private function getInterfaces()
++    public function discoverWirelessClients()
+     {
+-        // Need to use PHP_EOL, found newline (\n) not near as reliable / consistent! And this is as PHP says it should be done.
+-        $interfaces = explode(PHP_EOL, snmp_get($this->getDeviceArray(), 'NET-SNMP-EXTEND-MIB::nsExtendOutputFull."interfaces"', '-Osqnv'));
+-        $arrIfaces = [];
+-        foreach ($interfaces as $interface) {
+-            [$k, $v] = explode(',', $interface);
+-            $arrIfaces[$k] = $v;
++        $ret = [];
++        $data = $this->getCacheTable('UCD-SNMP-MIB::ucdavis');
++        if (! empty($data['ucdavis.7890.10.101.1'])) {
++            $apsnr = $data['ucdavis.7890.10.101.1'];
++            $base = 'ucdavis.7890.10.101.';
++            for ($f = 0; $f < $apsnr; $f++) {
++                $indexSsid = 2 + ($f * 5);
++                $indexFreq = 4 + ($f * 5);
++                $indexValue = 3 + ($f * 5);
++                $freq = $data[$base . $indexFreq];
++                $ssid = substr($freq, 0, 1) . 'G: ' . $data[$base . $indexSsid];
++                $value = $data[$base . $indexValue];
++                $oid = Oid::of('UCD-SNMP-MIB::ucdavis.7890.10.101.' . $indexValue)->toNumeric();
++                $ret[] = new WirelessSensor('clients', $this->getDeviceId(), $oid, 'openwrt', $indexValue, $ssid, $value);
++            }
+         }
+ 
+-        return $arrIfaces;
++        return $ret;
+     }
+ 
+-    /**
+-     * Generic (common / shared) routine, to create new Wireless Sensors, of the sensor Type passed as the call argument.
+-     * type - string, matching to LibreNMS documentation => https://docs.librenms.org/Developing/os/Wireless-Sensors/
+-     * query - string, query to be used at client (appends to type string, e.g. -tx, -rx)
+-     * system - boolean, flag to indicate that a combined ("system level") sensor (and OID) is to be added
+-     * stats - boolean, flag denoting that statistics are to be retrieved (min, max, avg)
+-     * NOTE: system and stats are assumed to be mutually exclusive (at least for now!)
+-     *
+-     * @return array Sensors
+-     */
+-    private function getSensorData($type, $query = '', $system = false, $stats = false)
++    public function discoverWirelessFrequency()
+     {
+-        // Initialize needed variables, and get interfaces (actual network name, and LibreNMS name)
+-        $sensors = [];
+-        $interfaces = $this->getInterfaces();
+-        $count = 1;
+-
+-        // Build array for stats - if desired
+-        $statstr = [''];
+-        if ($stats) {
+-            $statstr = ['-min', '-max', '-avg'];
+-        }
+-
+-        // Loop over interfaces, adding sensors
+-        foreach ($interfaces as $index => $interface) {
+-            // Loop over stats, appending to sensors as needed (only a single, blank, addition if no stats)
+-            foreach ($statstr as $stat) {
+-                $oid = "NET-SNMP-EXTEND-MIB::nsExtendOutput1Line.\"$type$query-$index$stat\"";
+-                $sensors[] = new WirelessSensor($type, $this->getDeviceId(), snmp_translate($oid), "openwrt$query", $count, "$interface$query$stat");
+-                $count += 1;
++        $ret = [];
++        $data = $this->getCacheTable('UCD-SNMP-MIB::ucdavis');
++        if (! empty($data['ucdavis.7890.10.101.1'])) {
++            $apsnr = $data['ucdavis.7890.10.101.1'];
++            $base = 'ucdavis.7890.10.101.';
++            for ($f = 0; $f < $apsnr; $f++) {
++                $indexSsid = 2 + ($f * 5);
++                $indexFreq = 4 + ($f * 5);
++                $indexValue = 4 + ($f * 5);
++                $freq = $data[$base . $indexFreq];
++                $ssid = substr($freq, 0, 1) . 'G: ' . $data[$base . $indexSsid];
++                $value = $data[$base . $indexValue];
++                $oid = Oid::of('UCD-SNMP-MIB::ucdavis.7890.10.101.' . $indexValue)->toNumeric();
++                $ret[] = new WirelessSensor('frequency', $this->getDeviceId(), $oid, 'openwrt', $indexValue, $ssid, $value);
+             }
+         }
+-        // If system level (i.e. overall) sensor desired, add that one as well
+-        if ($system and (count($interfaces) > 1)) {
+-            $oid = "NET-SNMP-EXTEND-MIB::nsExtendOutput1Line.\"$type$query-wlan\"";
+-            $sensors[] = new WirelessSensor($type, $this->getDeviceId(), snmp_translate($oid), "openwrt$query", $count, 'wlan');
+-        }
+-
+-        // And, return all the sensors that have been created above (i.e. the array of sensors)
+-        return $sensors;
+-    }
+ 
+-    /**
+-     * Discover wireless client counts. Type is clients.
+-     * Returns an array of LibreNMS\Device\Sensor objects that have been discovered
+-     *
+-     * @return array Sensors
+-     */
+-    public function discoverWirelessClients()
+-    {
+-        return $this->getSensorData('clients', '', true, false);
++        return $ret;
+     }
+ 
+-    /**
+-     * Discover wireless frequency.  This is in MHz. Type is frequency.
+-     * Returns an array of LibreNMS\Device\Sensor objects that have been discovered
+-     *
+-     * @return array Sensors
+-     */
+-    public function discoverWirelessFrequency()
++    public function discoverWirelessPower()
+     {
+-        return $this->getSensorData('frequency', '', false, false);
+-    }
++        $ret = [];
++        $data = $this->getCacheTable('UCD-SNMP-MIB::ucdavis');
++        if (! empty($data['ucdavis.7890.10.101.1'])) {
++            $apsnr = $data['ucdavis.7890.10.101.1'];
++            $base = 'ucdavis.7890.10.101.';
++            for ($f = 0; $f < $apsnr; $f++) {
++                $indexSsid = 2 + ($f * 5);
++                $indexFreq = 4 + ($f * 5);
++                $indexValue = 5 + ($f * 5);
++                $freq = $data[$base . $indexFreq];
++                $ssid = substr($freq, 0, 1) . 'G: ' . $data[$base . $indexSsid];
++                $value = $data[$base . $indexValue];
++                $oid = Oid::of('UCD-SNMP-MIB::ucdavis.7890.10.101.' . $indexValue)->toNumeric();
++                $ret[] = new WirelessSensor('power', $this->getDeviceId(), $oid, 'openwrt', $indexValue, $ssid, $value);
++            }
++        }
+ 
+-    /**
+-     * Discover wireless noise floor.  This is in dBm. Type is noise-floor.
+-     * Returns an array of LibreNMS\Device\Sensor objects that have been discovered
+-     *
+-     * @return array Sensors
+-     */
+-    public function discoverWirelessNoiseFloor()
+-    {
+-        return $this->getSensorData('noise-floor', '', false, false);
++        return $ret;
+     }
+ 
+-    /**
+-     * Discover wireless rate. This is in bps. Type is rate.
+-     * Returns an array of LibreNMS\Device\Sensor objects that have been discovered
+-     *
+-     * @return array
+-     */
+-    public function discoverWirelessRate()
++    public function discoverWirelessCcq()
+     {
+-        $txrate = $this->getSensorData('rate', '-tx', false, true);
+-        $rxrate = $this->getSensorData('rate', '-rx', false, true);
++        $ret = [];
++        $data = $this->getCacheTable('UCD-SNMP-MIB::ucdavis');
++        if (! empty($data['ucdavis.7890.10.101.1'])) {
++            $apsnr = $data['ucdavis.7890.10.101.1'];
++            $base = 'ucdavis.7890.10.101.';
++            for ($f = 0; $f < $apsnr; $f++) {
++                $indexSsid = 2 + ($f * 5);
++                $indexFreq = 4 + ($f * 5);
++                $indexValue = 6 + ($f * 5);
++                $freq = $data[$base . $indexFreq];
++                $ssid = substr($freq, 0, 1) . 'G: ' . $data[$base . $indexSsid];
++                $value = $data[$base . $indexValue];
++                $oid = Oid::of('UCD-SNMP-MIB::ucdavis.7890.10.101.' . $indexValue)->toNumeric();
++                $ret[] = new WirelessSensor('ccq', $this->getDeviceId(), $oid, 'openwrt', $indexValue, $ssid, $value);
++            }
++        }
+ 
+-        return array_merge($txrate, $rxrate);
++        return $ret;
+     }
+ 
+-    /**
+-     * Discover wireless snr. This is in dB. Type is snr.
+-     * Returns an array of LibreNMS\Device\Sensor objects that have been discovered
+-     *
+-     * @return array
+-     */
+-    public function discoverWirelessSNR()
++    public function discoverWirelessApCount()
+     {
+-        return $this->getSensorData('snr', '', false, true);
++        $ret = [];
++        $data = $this->getCacheTable('UCD-SNMP-MIB::ucdavis');
++        if (! empty($data['ucdavis.7890.10.101.1'])) {
++            $apsnr = $data['ucdavis.7890.10.101.1'];
++            $oid = Oid::of('UCD-SNMP-MIB::ucdavis.7890.10.101.1')->toNumeric();
++            $ret[] = new WirelessSensor('ap-count', $this->getDeviceId(), $oid, 'openwrt', 1, 'APs', $apsnr);
++        }
++
++        return $ret;
+     }
+ }
+diff --git a/LibreNMS/OS/Traits/YamlOSDiscovery.php b/LibreNMS/OS/Traits/YamlOSDiscovery.php
+index 87f281305..697aeb881 100644
+--- a/LibreNMS/OS/Traits/YamlOSDiscovery.php
++++ b/LibreNMS/OS/Traits/YamlOSDiscovery.php
+@@ -100,7 +100,7 @@ trait YamlOSDiscovery
+ 
+         Log::debug('Yaml location data:', $data);
+ 
+-        $location = $this->findFirst($data, $name, $numeric) ?? snmp_get($this->getDeviceArray(), 'SNMPv2-MIB::sysLocation.0', '-Oqv');
++        $location = $this->findFirst($data, $name, $numeric) ?? str_replace(', ', ',', snmp_get($this->getDeviceArray(), 'SNMPv2-MIB::sysLocation.0', '-Oqv'));
+ 
+         return new Location([
+             'location' => StringHelpers::inferEncoding($location),
+diff --git a/LibreNMS/Util/IP.php b/LibreNMS/Util/IP.php
+index a8b9a0e48..514ddc8ac 100644
+--- a/LibreNMS/Util/IP.php
++++ b/LibreNMS/Util/IP.php
+@@ -120,6 +120,11 @@ abstract class IP
+      */
+     public static function parse($ip, $ignore_errors = false)
+     {
++
++#        if (str_contains($ip, '0000:0000:0000:0000:0000:0000:0000:')) {
++#            $ip = str_replace('0000:0000:0000:0000:0000:0000:0000:', '0000:0000:0000:0000:0000:0000:', $ip);
++#        }
++
+         try {
+             return new IPv4($ip);
+         } catch (InvalidIpException $e) {
+diff --git a/LibreNMS/Util/IPv6.php b/LibreNMS/Util/IPv6.php
+index f82c30f89..487ff01b6 100644
+--- a/LibreNMS/Util/IPv6.php
++++ b/LibreNMS/Util/IPv6.php
+@@ -76,7 +76,7 @@ class IPv6 extends IP
+      */
+     public static function isValid($ipv6, $exclude_reserved = false)
+     {
+-        $filter = FILTER_FLAG_IPV6;
++        $filter = FILTER_FLAG_IPV6 | FILTER_FLAG_NO_RES_RANGE;
+         if ($exclude_reserved) {
+             $filter |= FILTER_FLAG_NO_RES_RANGE | FILTER_FLAG_GLOBAL_RANGE;
+         }
+@@ -163,10 +163,11 @@ class IPv6 extends IP
+      */
+     public function uncompressed()
+     {
++#        $rpt = (substr_count($this->ip, '.') == 3) ? 7 : 8;
++        $rpt = preg_match("/:\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\z/", $this->ip)  ? 7 : 8;
+         // remove ::
+-        $replacement = ':' . str_repeat('0000:', 8 - substr_count($this->ip, ':'));
++        $replacement = ':' . str_repeat('0000:', $rpt - substr_count($this->ip, ':'));
+         $ip = str_replace('::', $replacement, $this->ip);
+-
+         // zero pad
+         $parts = explode(':', $ip, 8);
+ 
+diff --git a/LibreNMS/Util/Rewrite.php b/LibreNMS/Util/Rewrite.php
+index 10721918d..a611d5d79 100644
+--- a/LibreNMS/Util/Rewrite.php
++++ b/LibreNMS/Util/Rewrite.php
+@@ -115,6 +115,7 @@ class Rewrite
+             'tengigabitethernet' => 'Te',
+             'ten-gigabitethernet' => 'Te',
+             'tengige' => 'Te',
++            'fiberethernet' => 'Gi',
+             'gigabitethernet' => 'Gi',
+             'fastethernet' => 'Fa',
+             'ethernet' => 'Et',
+diff --git a/app/Http/Controllers/Table/FdbTablesController.php b/app/Http/Controllers/Table/FdbTablesController.php
+old mode 100755
+new mode 100644
+index 1bc609d46..f850d385c
+--- a/app/Http/Controllers/Table/FdbTablesController.php
++++ b/app/Http/Controllers/Table/FdbTablesController.php
+@@ -168,7 +168,7 @@ class FdbTablesController extends TableController
+             'device' => Blade::render('<x-device-link :device="$device"/>', ['device' => $fdb_entry->device]),
+             'mac_address' => $mac->readable(),
+             'mac_oui' => $mac->vendor(),
+-            'ipv4_address' => $ips->implode(', '),
++            'ipv4_address' => implode(', ', array_unique($ips->toArray())),
+             'interface' => '',
+             'vlan' => $fdb_entry->vlan ? $fdb_entry->vlan->vlan_vlan : '',
+             'description' => '',
+diff --git a/app/Models/Vminfo.php b/app/Models/Vminfo.php
+index ade4f5c72..47903aa18 100644
+--- a/app/Models/Vminfo.php
++++ b/app/Models/Vminfo.php
+@@ -19,6 +19,7 @@ class Vminfo extends DeviceRelatedModel implements Keyable
+     protected $table = 'vminfo';
+     public $timestamps = false;
+     protected $fillable = [
++        'device_id',
+         'vm_type',
+         'vmwVmVMID',
+         'vmwVmDisplayName',
+diff --git a/html/.htaccess b/html/.htaccess
+index 608a095d8..b6fd33d87 100644
+--- a/html/.htaccess
++++ b/html/.htaccess
+@@ -32,3 +32,12 @@ RewriteCond %{REQUEST_URI} !\.(js|ico|txt|gif|jpg|png|css|php)
+ RewriteRule ^(.*)$ index.php
+ 
+ AcceptPathInfo On
++
++AuthUserFile /opt/librenms/.local/.htpasswd
++# AuthGroupFile /dev/null
++AuthName "taH pagh taHbe !!!"
++AuthType Basic
++
++<limit GET POST>
++require valid-user
++</limit>
+diff --git a/html/plugins/.gitignore b/html/plugins/.gitignore
+deleted file mode 100644
+index 5e7d2734c..000000000
+--- a/html/plugins/.gitignore
++++ /dev/null
+@@ -1,4 +0,0 @@
+-# Ignore everything in this directory
+-*
+-# Except this file
+-!.gitignore
+diff --git a/includes/definitions/discovery/jetdirect.yaml b/includes/definitions/discovery/jetdirect.yaml
+index 813d5e9de..31f9c55e3 100644
+--- a/includes/definitions/discovery/jetdirect.yaml
++++ b/includes/definitions/discovery/jetdirect.yaml
+@@ -1,4 +1,65 @@
++mib: HP-LASERJET-COMMON-MIB
+ modules:
+     os:
+         serial:
+             - Printer-MIB::prtGeneralSerialNumber.1
++    sensors:
++        state:
++            data:
++                -
++                    oid: default-media-size
++                    value: default-media-size
++                    num_oid: '.1.3.6.1.4.1.11.2.3.9.4.2.1.3.3.1.13.{{ $index }}'
++                    descr: 'Default Paper {{ $index }}'
++                    state_name: defaultMediaSize
++                    states:
++                        - { graph: 0, value: 1, generic: 0, descr: US_Executive }
++                        - { graph: 0, value: 2, generic: 0, descr: US_Letter }
++                        - { graph: 0, value: 2, generic: 0, descr: US_Legal }
++                        - { graph: 0, value: 25, generic: 0, descr: ISO_A5 }
++                        - { graph: 0, value: 26, generic: 0, descr: ISO_A4 }
++
++        count:
++            data:
++                -
++                    oid: scanner
++                    value: scanner-flatbed-page-count
++                    num_oid: '.1.3.6.1.4.1.11.2.3.9.4.2.1.2.2.1.74.{{ $index }}'
++                    group: "HP-Scanner"
++                    descr: "Lifetime scanned"
++                    index: 'scannerFlatbedPageCount.{{ $index }}'
++                -
++                    oid: total-engine-page-count
++                    value: total-engine-page-count
++                    num_oid: '.1.3.6.1.4.1.11.2.3.9.4.2.1.4.1.2.5.{{ $index }}'
++                    group: "HP-Printer"
++                    descr: "Total page cnt"
++                    index: 'totalEnginePageCount.{{ $index }}'
++                -
++                    oid: total-mono-page-count
++                    value: total-mono-page-count
++                    num_oid: '.1.3.6.1.4.1.11.2.3.9.4.2.1.4.1.2.6.{{ $index }}'
++                    group: "HP-Printer"
++                    descr: "Total Mono cnt"
++                    index: 'totalMonoPageCount.{{ $index }}'
++                -
++                    oid: total-color-page-count
++                    value: total-color-page-count
++                    num_oid: '.1.3.6.1.4.1.11.2.3.9.4.2.1.4.1.2.7.{{ $index }}'
++                    group: "HP-Printer"
++                    descr: "Total Color cnt"
++                    index: 'totalColorPageCount.{{ $index }}'
++                -
++                    oid: duplex-page-count
++                    value: duplex-page-count
++                    num_oid: '.1.3.6.1.4.1.11.2.3.9.4.2.1.4.1.2.22.{{ $index }}'
++                    group: "HP-Printer"
++                    descr: "Total Duplex cnt"
++                    index: 'duplexPageCount.{{ $index }}'
++                -
++                    oid: print-engine-jam-count
++                    value: print-engine-jam-count
++                    num_oid: '.1.3.6.1.4.1.11.2.3.9.4.2.1.4.1.2.34.{{ $index }}'
++                    group: "HP-Printer"
++                    descr: "Total Jam cnt"
++                    index: 'printEngineJamCount.{{ $index }}'
+diff --git a/includes/definitions/discovery/jetstream.yaml b/includes/definitions/discovery/jetstream.yaml
+index fc9e981a3..6ee6dbb20 100644
+--- a/includes/definitions/discovery/jetstream.yaml
++++ b/includes/definitions/discovery/jetstream.yaml
+@@ -42,6 +42,8 @@ modules:
+                         - TPLINK-DDMTXPOWTHRESHOLD-MIB::ddmTxPowThresholdLowWarn
+                         - TPLINK-DDMTXPOWTHRESHOLD-MIB::ddmTxPowThresholdHighAlarm
+                         - TPLINK-DDMTXPOWTHRESHOLD-MIB::ddmTxPowThresholdHighWarn
++                        - LLDP-MIB::lldpLocPortTable
++                        - TPLINK-POWER-OVER-ETHERNET-MIB::tpPoePortConfigTable
+         current:
+             data:
+                 -
+@@ -114,8 +116,45 @@ modules:
+                     divisor: 10
+                     index: tpSystemPowerLimit
+                     group: PoE
++                -
++                    oid: tpPoePortConfigTable
++                    num_oid: '.1.3.6.1.4.1.11863.6.56.1.1.2.1.1.7.{{ $index }}'
++                    value: tpPoePower
++                    descr: '{{ $LLDP-MIB::lldpLocPortDesc }}'
++                    divisor: 10
++                    entPhysicalIndex: '{{ $index }}'
++                    entPhysicalIndex_measured: ports
++                    group: PoE_Ports
++                    index: 'tpPoePower.{{ $index }}'
++                    high_limit: TPLINK-POWER-OVER-ETHERNET-MIB::tpPoePowerLimit
++                    skip_values:
++                        -
++                            oid: tpPoePowerStatus
++                            op: '='
++                            value: 0
+         state:
+             data:
++                -
++                    oid: tpPoePortConfigTable
++                    num_oid: '.1.3.6.1.4.1.11863.6.56.1.1.2.1.1.11.{{ $index }}'
++                    value: tpPoePowerStatus
++                    descr: '{{ $LLDP-MIB::lldpLocPortDesc }}'
++                    entPhysicalIndex: '{{ $index }}'
++                    entPhysicalIndex_measured: ports
++                    group: PoE_Ports
++                    index: 'tpPoePowerStatus.{{ $index }}'
++                    states:
++                        - {value: 0, generic: 3, graph: 1, descr: 'Off'}
++                        - {value: 1, generic: 1, graph: 1, descr: 'Turning-on'}
++                        - {value: 2, generic: 0, graph: 1, descr: 'On'}
++                        - {value: 3, generic: 2, graph: 1, descr: 'Overload'}
++                        - {value: 4, generic: 2, graph: 1, descr: 'Short'}
++                        - {value: 5, generic: 1, graph: 1, descr: 'Nonstandard'}
++                        - {value: 6, generic: 2, graph: 1, descr: 'VoltageHigh'}
++                        - {value: 7, generic: 2, graph: 1, descr: 'VoltageLow'}
++                        - {value: 8, generic: 2, graph: 1, descr: 'HardwareFault'}
++                        - {value: 9, generic: 2, graph: 1, descr: 'OverTemperature'}
++                    state_name: tpPoePowerStatus
+                 -
+                     oid: TPLINK-DDMSTATUS-MIB::ddmStatusTable
+                     num_oid: '.1.3.6.1.4.1.11863.6.96.1.7.1.1.7.{{ $index }}'
+diff --git a/includes/definitions/discovery/ligoos.yaml b/includes/definitions/discovery/ligoos.yaml
+index 24ec3b206..13c9db85c 100644
+--- a/includes/definitions/discovery/ligoos.yaml
++++ b/includes/definitions/discovery/ligoos.yaml
+@@ -1,3 +1,3 @@
+ modules:
+   os:
+-    sysDescr_regex: '/LigoPTP (?<hardware>[^,]*),? (?<version>v[\d\-.]+\d)/'
++    sysDescr_regex: '/LigoPTP|LigoDLB (?<hardware>[^,]*),? (?<version>v[\d\-.]+\d)/'
+diff --git a/includes/definitions/discovery/routeros.yaml b/includes/definitions/discovery/routeros.yaml
+index eebcc3579..8cf15dc89 100644
+--- a/includes/definitions/discovery/routeros.yaml
++++ b/includes/definitions/discovery/routeros.yaml
+@@ -1,6 +1,7 @@
+ modules:
+     os:
+-        sysDescr_regex: '/RouterOS (?<hardware>.*)/'
++#        sysDescr_regex: '/RouterOS (?<hardware>.*)/'
++        hardware: MIKROTIK-MIB::mtxrBoardName.0
+         features: MIKROTIK-MIB::mtxrLicLevel.0
+         features_template: 'Level {{ MIKROTIK-MIB::mtxrLicLevel.0 }}'
+         serial: MIKROTIK-MIB::mtxrSerialNumber.0
+@@ -242,3 +243,11 @@ modules:
+                     num_oid: .1.3.6.1.4.1.14988.1.1.6.1.{{ $index }}
+                     descr: DHCP Lease Count
+                     index: mtxrDHCPLeaseCount.{{ $index }}
++        frequency:
++            data:
++                -
++                    oid: MIKROTIK-MIB::mtxrHlProcessorFrequency
++                    num_oid: '.1.3.6.1.4.1.14988.1.1.3.14.{{ $index }}'
++                    descr: 'cpu'
++                    index: 'mtxrHlProcessorFrequency.{{ $index }}'
++                    multiplier: 1000000
+diff --git a/includes/definitions/discovery/supermicro-bmc.yaml b/includes/definitions/discovery/supermicro-bmc.yaml
+index 3cb9118a1..8846e27da 100644
+--- a/includes/definitions/discovery/supermicro-bmc.yaml
++++ b/includes/definitions/discovery/supermicro-bmc.yaml
+@@ -153,22 +153,6 @@ modules:
+                     states:
+                         - { value: 0, descr: "OK", graph: 1, generic: 0 }
+                         - { value: 1, descr: "General Chassis Intrusion." , graph: 1, generic: 2  }
+-                -
+-                    oid: sensorTable
+-                    value: sensorReading
+-                    num_oid: '.1.3.6.1.4.1.21317.1.3.1.2.{{ $index }}'
+-                    descr: sensorIDString
+-                    index: 'sensorReading.{{ $index }}'
+-                    skip_values:
+-                        -
+-                            oid: sensorIDString
+-                            op: '!='
+-                            value: "VBAT"
+-                    state_name: "VBAT"
+-                    states:
+-                        - { value: 0, descr: "Not Present", graph: 1, generic: 2 }
+-                        - { value: 2, descr: "Present: Failed", graph: 1, generic: 2 }
+-                        - { value: 4, descr: "Present: OK" , graph: 1, generic: 0  }
+                 -
+                     oid: sensorTable
+                     value: sensorReading
+diff --git a/includes/definitions/hpe-ilo.yaml b/includes/definitions/hpe-ilo.yaml
+index faaa9acf0..f6555bb57 100644
+--- a/includes/definitions/hpe-ilo.yaml
++++ b/includes/definitions/hpe-ilo.yaml
+@@ -11,6 +11,8 @@ discovery:
+             - .1.3.6.1.4.1.232.9.4.10
+             - .1.3.6.1.4.1.232.9.4.11
+             - .1.3.6.1.4.1.232.9.4.12
++bad_if:
++    - veth
+ mib_dir: hp
+ ignore_mount_regexp:
+     - '#^[^/]+ on /#' # Ignore linux synthetic mounts via CPQHOST-MIB
+diff --git a/includes/definitions/jetdirect.yaml b/includes/definitions/jetdirect.yaml
+index 3a09cd75a..f732cf1f8 100644
+--- a/includes/definitions/jetdirect.yaml
++++ b/includes/definitions/jetdirect.yaml
+@@ -4,6 +4,8 @@ text: 'HP Print server'
+ ifname: true
+ type: printer
+ icon: hp
++mib_dir: hp
++snmp_bulk: false
+ over:
+     - { graph: device_toner, text: Toner }
+ discovery_modules:
+@@ -15,6 +17,7 @@ discovery:
+         sysDescr:
+             - JETDIRECT
+             - HP ETHERNET MULTI-ENVIRONMENT
++            - HP Laser MFP
+     -
+         sysObjectID_regex:
+             - '/^.1.3.6.1.4.1.11.1$/'
+diff --git a/includes/definitions/jetstream.yaml b/includes/definitions/jetstream.yaml
+index 31550098e..14af68993 100644
+--- a/includes/definitions/jetstream.yaml
++++ b/includes/definitions/jetstream.yaml
+@@ -3,6 +3,10 @@ text: 'TP-Link JetStream'
+ type: network
+ icon: tplink
+ mib_dir: tplink
++over:
++    - { graph: device_bits, text: 'Device Traffic' }
++    - { graph: device_processor, text: 'CPU Usage' }
++    - { graph: device_mempool, text: 'Memory Usage' }
+ discovery:
+     -
+         sysObjectID:
+diff --git a/includes/definitions/ligoos.yaml b/includes/definitions/ligoos.yaml
+index 1adfe2d7b..ad7cb8b0c 100644
+--- a/includes/definitions/ligoos.yaml
++++ b/includes/definitions/ligoos.yaml
+@@ -2,9 +2,11 @@ os: ligoos
+ text: 'LigoWave LigoOS'
+ type: wireless
+ icon: ligowave
++mib_dir: ligoos
+ over:
+     - { graph: device_bits, text: Traffic }
+ discovery:
+     -
+         sysDescr_regex:
+             - '/^LigoPTP/'
++            - '/^LigoDLB/'
+diff --git a/includes/definitions/linux.yaml b/includes/definitions/linux.yaml
+index 490b022ea..66f567dfa 100644
+--- a/includes/definitions/linux.yaml
++++ b/includes/definitions/linux.yaml
+@@ -26,3 +26,6 @@ discovery:
+ ignore_mount_regexp:
+     - '#^/run($|/)#'
+     - '#^/dev/shm$#'
++oids:
++    no_bulk:
++        - NET-SNMP-EXTEND-MIB::nsExtendStatus
+\ No newline at end of file
+diff --git a/includes/discovery/applications.inc.php b/includes/discovery/applications.inc.php
+index 8dae82af1..12640bd22 100644
+--- a/includes/discovery/applications.inc.php
++++ b/includes/discovery/applications.inc.php
+@@ -33,7 +33,7 @@ use LibreNMS\Enum\Severity;
+ echo "\nApplications: ";
+ 
+ // fetch applications from the client
+-$results = snmpwalk_cache_oid($device, 'nsExtendStatus', [], 'NET-SNMP-EXTEND-MIB');
++$results = SnmpQuery::hideMib()->options(['-OQUs'])->walk('NET-SNMP-EXTEND-MIB::nsExtendStatus')->table(1);
+ 
+ // Load our list of available applications
+ $applications = [];
+diff --git a/includes/discovery/discovery-protocols.inc.php b/includes/discovery/discovery-protocols.inc.php
+index 9ad55faf5..dbfbf3d8c 100644
+--- a/includes/discovery/discovery-protocols.inc.php
++++ b/includes/discovery/discovery-protocols.inc.php
+@@ -51,6 +51,7 @@ if (isset($device['os_group']) && $device['os_group'] == 'cisco') {
+         $interface = get_port_by_ifIndex($device['device_id'], $key);
+ 
+         foreach ($cdp_if_array as $entry_key => $cdp) {
++            $cdp['cdpCacheDeviceId'] = normalizeSysName($cdp['cdpCacheDeviceId']);
+             d_echo($cdp);
+ 
+             $cdp_ip = IP::fromHexString($cdp['cdpCacheAddress'], true);
+@@ -87,20 +88,30 @@ if (isset($device['os_group']) && $device['os_group'] == 'cisco') {
+     echo PHP_EOL;
+ }//end if
+ 
+-if (($device['os'] == 'routeros') && version_compare($device['version'], '7.7', '<')) {
++if ($device['os'] == 'routeros') {
+     echo ' LLDP-MIB: ';
+     $lldp_array = SnmpQuery::hideMib()->walk('LLDP-MIB::lldpRemEntry')->table(3);
++    $lldp_array = SnmpQuery::hideMib()->walk('LLDP-MIB::lldpRemManAddrEntry')->table(3, $lldp_array);
++
+     if (! empty($lldp_array)) {
+-        // workaround for routeros returning the incorrect index
+-        if (! empty($lldp_array[0][0])) {
+-            $lldp_array = $lldp_array[0][0];
++        if (min(array_keys($lldp_array[0])) != 0) { // ros v7.7
++            foreach ($lldp_array[0] as $tmpData) {
++                foreach ($tmpData as $tmpKey => $lldpData) {
++                    $tmpArray[0][0][$tmpKey] = $lldpData;
++                }
++            }
++            $lldp_array = $tmpArray;
+         }
++        $lldp_array = array_shift($lldp_array);
++        $lldp_array = array_shift($lldp_array);
+ 
+         $lldp_ports = SnmpQuery::hideMib()->walk('MIKROTIK-MIB::mtxrInterfaceStatsName')->table();
+         $lldp_ports_num = SnmpQuery::hideMib()->walk('MIKROTIK-MIB::mtxrNeighborInterfaceID')->table();
+ 
+         foreach ($lldp_array as $key => $lldp) {
+-            $local_port_ifName = $lldp_ports[hexdec($lldp_ports_num[$key]['mtxrNeighborInterfaceID'])]['mtxrInterfaceStatsName'];
++            $lldp['lldpRemSysName'] = normalizeSysName($lldp['lldpRemSysName']);
++
++            $local_port_ifName = $lldp_ports['mtxrInterfaceStatsName'][hexdec($lldp_ports_num['mtxrNeighborInterfaceID'][$key])];
+             $local_port_id = find_port_id($local_port_ifName, null, $device['device_id']);
+             $interface = get_port_by_id($local_port_id);
+             if ($lldp['lldpRemPortIdSubtype'] == 3) { // 3 = macaddress
+@@ -108,16 +119,21 @@ if (($device['os'] == 'routeros') && version_compare($device['version'], '7.7',
+             }
+ 
+             $remote_device_id = find_device_id($lldp['lldpRemSysName'], $lldp['lldpRemManAddr'], $remote_port_mac);
++            $remote_chassis_id = str_replace([' ', ':', '-'], '', strtolower($lldp['lldpRemChassisId']));
+ 
+             if (! $remote_device_id &&
+                     \LibreNMS\Util\Validate::hostname($lldp['lldpRemSysName']) &&
+                     ! can_skip_discovery($lldp['lldpRemSysName'], $lldp['lldpRemSysDesc']) &&
+                     Config::get('autodiscovery.xdp') === true) {
+                 $remote_device_id = discover_new_device($lldp['lldpRemSysName'], $device, 'LLDP', $interface);
++
++                if (! $remote_device_id && Config::get('discovery_by_ip', false)) { //name lookup failed, try with IP
++                    $remote_device_id = discover_new_device($lldp['lldpRemManAddr'], $device, 'LLDP', $local_port_id);
++                }
+             }
+ 
+             if ($interface['port_id'] && $lldp['lldpRemSysName'] && $lldp['lldpRemPortId']) {
+-                $remote_port_id = find_port_id($lldp['lldpRemPortDesc'], $lldp['lldpRemPortId'], $remote_device_id);
++                $remote_port_id = find_port_id($lldp['lldpRemPortDesc'], $lldp['lldpRemPortId'], $remote_device_id, $remote_chassis_id);
+                 discover_link(
+                     $interface['port_id'],
+                     'lldp',
+@@ -207,49 +223,51 @@ if (($device['os'] == 'routeros') && version_compare($device['version'], '7.7',
+ } elseif ($device['os'] == 'jetstream') {
+     echo ' JETSTREAM-LLDP MIB: ';
+ 
+-    $lldp = SnmpQuery::hideMib()->walk('TPLINK-LLDPINFO-MIB::lldpNeighborInfoEntry')->table();
+-
+-    if (is_array($lldp['lldpNeighborPortIndexId'])) {
+-        foreach ($lldp['lldpNeighborPortIndexId'] as $IndexId => $lldp_data) {
+-            if (! is_array($lldp_data)) {
+-                // code below will fail so no need to finish this loop occurence.
+-                continue;
++//    $lldp_array = snmpwalk_group($device, 'lldpNeighborInfoEntry', 'TPLINK-LLDPINFO-MIB');
++    $lldp_array = SnmpQuery::hideMib()->walk('TPLINK-LLDPINFO-MIB::lldpNeighborInfoEntry')->table(1);
++    foreach ($lldp_array as $key => $lldp) {
++        foreach ($lldp['lldpNeighborPortIndexId'] as $tmpkey => $IndexId) { // more than one neighbor on same port??
++            //try to find our local port
++            $local_ifName = $lldp['lldpNeighborPortId'][$IndexId];
++            $local_port_id = \App\Models\Port::where('device_id', $device['device_id'])->where('ifName', 'LIKE', '%' . $local_ifName)->value('port_id');
++            d_echo('Jetstream local port: ' . $local_port_id);
++
++            $lldp['lldpNeighborDeviceName'][$IndexId] = normalizeSysName($lldp['lldpNeighborDeviceName'][$IndexId]);
++            $remote_device_id = find_device_id($lldp['lldpNeighborDeviceName'][$IndexId]);
++            $remote_device_name = $lldp['lldpNeighborDeviceName'][$IndexId];
++            $remote_device_sysDescr = $lldp['lldpNeighborDeviceDescr'][$IndexId];
++            $remote_device_ip = $lldp['lldpNeighborManageIpAddr'][$IndexId];
++            $remote_device_neport = $lldp['lldpNeighborManageAddrInterfaceId'][$IndexId];
++            $remote_device_mac = '';
++            if ($lldp['lldpNeighborChassisIdType'][$IndexId] == 'MAC address') {
++                $remote_device_mac = strtolower(\LibreNMS\Util\Mac::parse($lldp['lldpNeighborChassisId'][$IndexId])->hex());
+             }
+ 
+-            $interface = get_port_by_ifIndex($device['device_id'], $IndexId);
+-            if (! $interface['port_id']) {
+-                $local_ifName = $lldp['lldpNeighborPortId'][$IndexId][1];
+-                $local_port_id = find_port_id('gigabitEthernet ' . $local_ifName, null, $device['device_id']);
+-                $interface = get_port_by_id($local_port_id);
++            $remote_port_descr = strlen($lldp['lldpNeighborPortIdDescr'][$IndexId]) > 2 ? $lldp['lldpNeighborPortIdDescr'][$IndexId] : $lldp['lldpNeighborPortDescr'][$IndexId];
++            $remote_port_id = find_port_id($remote_port_descr, $remote_device_neport, $remote_device_id, $remote_device_mac);
++            if (! $remote_device_id &&
++                \LibreNMS\Util\Validate::hostname($remote_device_name) &&
++                ! can_skip_discovery($remote_device_name, $remote_device_ip) &&
++                Config::get('autodiscovery.xdp') === true) {
++                $remote_device_id = discover_new_device($remote_device_name, $device, 'LLDP', $local_port_id);
+             }
+-
+-            $remote_device_id = find_device_id($lldp['lldpNeighborDeviceName'][$IndexId][1]);
+-            $remote_device_name = $lldp['lldpNeighborDeviceName'][$IndexId][1];
+-            $remote_device_sysDescr = $lldp['lldpNeighborDeviceDescr'][$IndexId][1];
+-            $remote_device_ip = $lldp['lldpNeighborManageIpAddr'][$IndexId][1];
+-            $remote_port_descr = $lldp['lldpNeighborPortIdDescr'][$IndexId][1];
+-            $remote_port_id = find_port_id($remote_port_descr, null, $remote_device_id);
+-
+             if (! $remote_device_id &&
+-                    \LibreNMS\Util\Validate::hostname($remote_device_name) &&
+-                    ! can_skip_discovery($remote_device_name, $remote_device_ip) &&
+-                    Config::get('autodiscovery.xdp') === true) {
+-                $remote_device_id = discover_new_device($remote_device_name, $device, 'LLDP', $interface);
++                Config::get('discovery_by_ip', false) &&
++                Config::get('autodiscovery.xdp') === true) { //name lookup failed, try with IP
++                $remote_device_id = discover_new_device($remote_device_ip, $device, 'LLDP', $local_port_id);
+             }
+ 
+-            if ($interface['port_id'] && $remote_device_name && $remote_port_descr) {
+-                discover_link(
+-                    $interface['port_id'], //our port id from database
+-                    'lldp',
+-                    $remote_port_id, //remote port id from database if applicable
+-                    $remote_device_name, //remote device name from SNMP walk
+-                    $remote_port_descr, //remote port description from SNMP walk
+-                    null,
+-                    $remote_device_sysDescr, //remote device description from SNMP walk
+-                    $device['device_id'], //our device id
+-                    $remote_device_id //remote device id if applicable
+-                );
+-            }
++            discover_link(
++                $local_port_id, //our port id from database
++                'lldp',
++                $remote_port_id, //remote port id from database if applicable
++                $remote_device_name, //remote device name from SNMP walk
++                $remote_port_descr, //remote port description from SNMP walk
++                null,
++                $remote_device_sysDescr, //remote device description from SNMP walk
++                $device['device_id'], //our device id
++                $remote_device_id //remote device id if applicable
++            );
+         }
+     }
+     echo PHP_EOL;
+@@ -257,6 +275,7 @@ if (($device['os'] == 'routeros') && version_compare($device['version'], '7.7',
+     echo ' LLDP-MIB: ';
+     $lldp_array = SnmpQuery::hideMib()->walk('LLDP-MIB::lldpRemTable')->table(3);
+     if (! empty($lldp_array)) {
++#        $lldp_remAddr_num = snmpwalk_cache_multi_oid($device, '.1.0.8802.1.1.2.1.4.2.1.3', [], 'LLDP-MIB', null, '-OQun');
+         $lldp_remAddr_num = SnmpQuery::hideMib()->numeric()->walk('.1.0.8802.1.1.2.1.4.2.1.3');
+         foreach ($lldp_remAddr_num as $key => $value) {
+             $res = preg_match("/1\.0\.8802\.1\.1\.2\.1\.4\.2\.1\.3\.([^\.]*)\.([^\.]*)\.([^\.]*)\.([^\.]*)\.([^\.]*).(([^\.]*)(\.([^\.]*))+)/", $key, $matches);
+@@ -350,10 +369,20 @@ if (($device['os'] == 'routeros') && version_compare($device['version'], '7.7',
+             d_echo($lldp_instance);
+ 
+             foreach ($lldp_instance as $entry_instance => $lldp) {
++                $lldp['lldpRemSysName'] = normalizeSysName($lldp['lldpRemSysName']);
++
++                //if target system is mikrotik
++                if (stripos($lldp['lldpRemSysDesc'], 'mikrotik') !== false) {
++                    $rosPortNames = explode('/', $lldp['lldpRemPortId']);
++                    $rosMaxKey = max(array_keys($rosPortNames));
++                    $lldp['lldpRemPortId'] = $lldp['lldpRemPortDescr'] = $rosPortNames[$rosMaxKey];
++                } //mikrotik
++
+                 // If lldpRemPortIdSubtype is 5 and lldpRemPortId is hex, convert it to ASCII.
+                 if ($lldp['lldpRemPortIdSubtype'] == 5 && ctype_xdigit(str_replace([' ', ':', '-'], '', strtolower($lldp['lldpRemPortId'])))) {
+                     $lldp['lldpRemPortId'] = StringHelpers::hexToAscii($lldp['lldpRemPortId'], ':');
+                 }
++
+                 // normalize MAC address if present
+                 $remote_port_mac = '';
+                 $remote_port_name = $lldp['lldpRemPortId'];
+@@ -457,7 +486,6 @@ if (($device['os'] == 'routeros') && version_compare($device['version'], '7.7',
+             }//end foreach
+         }//end foreach
+     }//end foreach
+-
+     unset(
+         $dot1d_array
+     );
+diff --git a/includes/discovery/functions.inc.php b/includes/discovery/functions.inc.php
+index c8f96374a..ef2dabdde 100644
+--- a/includes/discovery/functions.inc.php
++++ b/includes/discovery/functions.inc.php
+@@ -910,6 +910,9 @@ function find_device_id($name = '', $ip = '', $mac_address = '')
+     if ($name && \LibreNMS\Util\Validate::hostname($name)) {
+         $where[] = '`hostname`=?';
+         $params[] = $name;
++        $where[] = '`sysName`=?';
++        $params[] = $name;
++
+ 
+         if ($mydomain = Config::get('mydomain')) {
+             $where[] = '`hostname`=?';
+@@ -925,12 +928,14 @@ function find_device_id($name = '', $ip = '', $mac_address = '')
+         $where[] = '`hostname`=?';
+         $params[] = $ip;
+ 
++/*
+         try {
+             $params[] = IP::fromHexString($ip)->packed();
+             $where[] = '`ip`=?';
+         } catch (InvalidIpException $e) {
+             //
+         }
++*/
+     }
+ 
+     if (! empty($where)) {
+@@ -1042,3 +1047,8 @@ function find_port_id($description, $identifier = '', $device_id = 0, $mac_addre
+ 
+     return (int) dbFetchCell($sql, $params);
+ }
++
++function normalizeSysName($sysName = ''): string
++{
++    return rtrim(str_replace(['.MP.', '.TS.'], '', $sysName), '.'); //strip artefacts from device name, jetstream LLDP extension
++}
+diff --git a/includes/discovery/ports.inc.php b/includes/discovery/ports.inc.php
+index 7c8e6b71e..6a4e2f0d5 100644
+--- a/includes/discovery/ports.inc.php
++++ b/includes/discovery/ports.inc.php
+@@ -2,6 +2,7 @@
+ 
+ // Build SNMP Cache Array
+ use App\Models\PortGroup;
++use App\Models\Port;
+ use LibreNMS\Config;
+ use LibreNMS\Enum\PortAssociationMode;
+ use LibreNMS\Util\StringHelpers;
+@@ -67,6 +68,16 @@ if ($device['os'] == 'luminato') {
+     require base_path('includes/discovery/ports/luminato.inc.php');
+ }
+ 
++//HPE-iLO
++if ($device['os'] == 'hpe-ilo') {
++    require base_path('includes/discovery/ports/hpe-ilo.inc.php');
++}
++
++//JETSTREAM old device
++if ($device['os'] == 'jetstream') {
++    require base_path('includes/discovery/ports/jetstream.inc.php');
++}
++
+ //Moxa Etherdevice portName mapping
+ if ($device['os'] == 'moxa-etherdevice') {
+     require base_path('includes/discovery/ports/moxa-etherdevice.inc.php');
+@@ -145,6 +156,9 @@ foreach ($port_stats as $ifIndex => $snmp_data) {
+ 
+         // Port newly discovered?
+         if (! isset($ports_db[$port_id]) || ! is_array($ports_db[$port_id])) {
++            //Port Association Mode = ifName
++            Port::where('device_id', $device['device_id'])->where('ifIndex', $ifIndex)->delete();
++
+             $snmp_data['device_id'] = $device['device_id'];
+             $port_id = dbInsert($snmp_data, 'ports');
+ 
+diff --git a/includes/discovery/route/routeros.inc.php b/includes/discovery/route/routeros.inc.php
+index 5c38cb931..9e9c1eee2 100644
+--- a/includes/discovery/route/routeros.inc.php
++++ b/includes/discovery/route/routeros.inc.php
+@@ -19,56 +19,70 @@
+  * @package    LibreNMS
+  * @link       https://www.librenms.org
+  *
+- * @copyright  2022 Peca Nesovanovic
+- *
++ * @copyright  2025 Peca Nesovanovic
+  * @author     Peca Nesovanovic <peca.nesovanovic@sattrakt.com>
+  */
+ 
+ use LibreNMS\Util\IPv6;
++use LibreNMS\Exceptions\InvalidIpException;
+ 
+-$oids = SnmpQuery::walk('IPV6-MIB::ipv6RouteTable')->table(1);
++$oids = SnmpQuery::hidemib()->walk('IPV6-MIB::ipv6RouteTable')->table(1);
+ 
+ foreach ($oids as $dst => $data) {
+-    $PfxLen = array_key_first($data['IPV6-MIB::ipv6RouteIfIndex']);
+-    $RouteIndex = array_key_first($data['IPV6-MIB::ipv6RouteIfIndex'][$PfxLen]);
+ 
+-    //route destination
+-    $ipv6dst = new IPv6($dst);
+-    $dst_uncompressed = $ipv6dst->uncompressed();
++    if (empty($data['ipv6RouteIfIndex'])) {
++        continue;
++    }
++
++    try {
++        //route destination
++        $ipv6dst = new IPv6($dst);
++        $inetCidrRouteDest = $ipv6dst->uncompressed();
++
++        $inetCidrRoutePfxLen = array_key_first($data['ipv6RouteIfIndex']);
++        $ipv6RouteIfIndex = array_key_first($data['ipv6RouteIfIndex'][$inetCidrRoutePfxLen]);
++
++        //next hop
++        $ipv6hop = new IPv6($data['ipv6RouteNextHop'][$inetCidrRoutePfxLen][$ipv6RouteIfIndex]);
++        $inetCidrRouteNextHop = $ipv6hop->uncompressed();
++
++        //portId from ifIndex
++        $ifIndex = $data['ipv6RouteIfIndex'][$inetCidrRoutePfxLen][$ipv6RouteIfIndex];
++        $portId = \App\Facades\PortCache::getIdFromIfIndex($ifIndex, $device['device_id']);
+ 
+-    //next hop
+-    $ipv6hop = new IPv6($data['IPV6-MIB::ipv6RouteNextHop'][$PfxLen][$RouteIndex]);
+-    $hop_uncompressed = $ipv6hop->uncompressed();
++        //route policy
++        $inetCidrRoutePolicy = $data['ipv6RoutePolicy'][$inetCidrRoutePfxLen][$ipv6RouteIfIndex];
+ 
+-    //portId from ifIndex
+-    $ifIndex = $data['IPV6-MIB::ipv6RouteIfIndex'][$PfxLen][$RouteIndex];
+-    $portId = \App\Facades\PortCache::getIdFromIfIndex($ifIndex, $device['device_id']);
++        //populate array with data
++        unset($entryClean);
++        $entryClean['updated_at'] = $update_timestamp;
++        $entryClean['device_id'] = $device['device_id'];
++        $entryClean['port_id'] = $portId;
++        $entryClean['context_name'] = '';
++        $entryClean['inetCidrRouteIfIndex'] = $ifIndex;
++        $entryClean['inetCidrRouteType'] = $data['ipv6RouteType'][$inetCidrRoutePfxLen][$ipv6RouteIfIndex];
++        $entryClean['inetCidrRouteProto'] = $data['ipv6RouteProtocol'][$inetCidrRoutePfxLen][$ipv6RouteIfIndex];
++        $entryClean['inetCidrRouteNextHopAS'] = '0';
++        $entryClean['inetCidrRouteMetric1'] = $data['ipv6RouteMetric'][$inetCidrRoutePfxLen][$ipv6RouteIfIndex];
++        $entryClean['inetCidrRouteDestType'] = 'ipv6';
++        $entryClean['inetCidrRouteDest'] = $inetCidrRouteDest;
++        $entryClean['inetCidrRouteNextHopType'] = 'ipv6';
++        $entryClean['inetCidrRouteNextHop'] = $inetCidrRouteNextHop;
++        $entryClean['inetCidrRouteNextHopType'] = 'ipv6';
++        $entryClean['inetCidrRoutePolicy'] = $inetCidrRoutePolicy;
++        $entryClean['inetCidrRoutePfxLen'] = $inetCidrRoutePfxLen;
+ 
+-    //populate array with data
+-    unset($entryClean);
+-    $entryClean['updated_at'] = $update_timestamp;
+-    $entryClean['device_id'] = $device['device_id'];
+-    $entryClean['port_id'] = $portId;
+-    $entryClean['context_name'] = '';
+-    $entryClean['inetCidrRouteIfIndex'] = $ifIndex;
+-    $entryClean['inetCidrRouteType'] = $data['IPV6-MIB::ipv6RouteType'][$PfxLen][$RouteIndex];
+-    $entryClean['inetCidrRouteProto'] = $data['IPV6-MIB::ipv6RouteProtocol'][$PfxLen][$RouteIndex];
+-    $entryClean['inetCidrRouteNextHopAS'] = '0';
+-    $entryClean['inetCidrRouteMetric1'] = $data['IPV6-MIB::ipv6RouteMetric'][$PfxLen][$RouteIndex];
+-    $entryClean['inetCidrRouteDestType'] = 'ipv6';
+-    $entryClean['inetCidrRouteDest'] = $dst_uncompressed;
+-    $entryClean['inetCidrRouteNextHopType'] = 'ipv6';
+-    $entryClean['inetCidrRouteNextHop'] = $hop_uncompressed;
+-    $entryClean['inetCidrRouteNextHopType'] = 'ipv6';
+-    $entryClean['inetCidrRoutePolicy'] = $data['IPV6-MIB::ipv6RoutePolicy'][$PfxLen][$RouteIndex];
+-    $entryClean['inetCidrRoutePfxLen'] = $PfxLen;
++        $current = $mixed['']['ipv6'][$inetCidrRouteDest][$inetCidrRoutePfxLen][$inetCidrRoutePolicy]['ipv6'][$inetCidrRouteNextHop];
++        if (isset($current) && isset($current['db']) && count($current['db']) > 0 && $delete_row[$current['db']['route_id']] != 1) {
++            //we already have a row in DB
++            $entryClean['route_id'] = $current['db']['route_id'];
++            $update_row[] = $entryClean;
++        } else {
++            $entry['created_at'] = ['NOW()'];
++            $create_row[] = $entryClean;
++        }
+ 
+-    $current = $mixed['']['ipv6'][$inetCidrRouteDest][$inetCidrRoutePfxLen][$entryClean['inetCidrRoutePolicy']]['ipv6'][$inetCidrRouteNextHop];
+-    if (isset($current) && isset($current['db']) && count($current['db']) > 0 && $delete_row[$current['db']['route_id']] != 1) {
+-        //we already have a row in DB
+-        $update_row[] = $entryClean;
+-    } else {
+-        $entry['created_at'] = ['NOW()'];
+-        $create_row[] = $entryClean;
++    } catch (InvalidIpException $e) {
++        \Illuminate\Support\Facades\Log::debug('Invalid IPV6: ' . $dst);
+     }
+ }
+diff --git a/includes/discovery/vlans/jetstream.inc.php b/includes/discovery/vlans/jetstream.inc.php
+index db1dc1a2b..acbe99041 100644
+--- a/includes/discovery/vlans/jetstream.inc.php
++++ b/includes/discovery/vlans/jetstream.inc.php
+@@ -72,6 +72,7 @@ if ($vlanversion == 'version1' || $vlanversion == '2') {
+     foreach ($jet_vlanDb as $jet_vlan_id => $jet_vlan_data) {
+         d_echo(" $jet_vlan_id ");
+ 
++        $jet_vlan_data['dot1qVlanDescription'] = ($jet_vlan_data['dot1qVlanDescription'] == 'System-VLAN') ? 'Vlan_1' : $jet_vlan_data['dot1qVlanDescription'];
+         if (isset($vlans_db[$vtpdomain_id][$jet_vlan_id]) && is_array($vlans_db[$vtpdomain_id][$jet_vlan_id])) {
+             $vlan_data = $vlans_db[$vtpdomain_id][$jet_vlan_id];
+ 
+diff --git a/includes/discovery/vlans/q-bridge-mib.inc.php b/includes/discovery/vlans/q-bridge-mib.inc.php
+index fd2c08cc3..d9da220bb 100644
+--- a/includes/discovery/vlans/q-bridge-mib.inc.php
++++ b/includes/discovery/vlans/q-bridge-mib.inc.php
+@@ -57,7 +57,7 @@ if ($vlanversion == 'version1' || $vlanversion == '2') {
+ 
+     foreach ($vlans as $vlan_id => $vlan) {
+         d_echo('Processing vlan ID: ' . $vlan_id);
+-        $vlan_name = empty($vlan['Q-BRIDGE-MIB::dot1qVlanStaticName']) ? "VLAN $vlan_id" : $vlan['Q-BRIDGE-MIB::dot1qVlanStaticName'];
++        $vlan_name = empty($vlan['Q-BRIDGE-MIB::dot1qVlanStaticName']) ? 'Vlan_' . $vlan_id : $vlan['Q-BRIDGE-MIB::dot1qVlanStaticName'];
+ 
+         //try to get existing data from DB
+         $vlanDB = Vlan::firstOrNew([
+diff --git a/includes/discovery/vlans/routeros.inc.php b/includes/discovery/vlans/routeros.inc.php
+index ed75d5c07..a62cab42f 100644
+--- a/includes/discovery/vlans/routeros.inc.php
++++ b/includes/discovery/vlans/routeros.inc.php
+@@ -43,11 +43,17 @@ if (isset($sIndex)) {
+ 
+     foreach (preg_split("/((\r?\n)|(\r\n?))/", $data) as $line) {
+         [$vType, $vId, $vIf] = array_map('trim', explode(',', $line));
+-        $vName = 'Vlan_' . $vId;
++
++        if ($vType == 'N') {
++            $vlanNames[$vId] = $vIf;
++            continue;
++        }
+ 
+         if ($oldId != $vId) {
+             $oldId = $vId;
+ 
++            $vName = $vlanNames[$vId] ?? 'Vlan_' . $vId;
++
+             //add vlan ID to $device array
+             $device['vlans'][1][$vId] = $vId;
+ 
+@@ -59,6 +65,7 @@ if (isset($sIndex)) {
+                 'vlan_domain' => 1,
+                 'vlan_name' => $vName,
+             ]);
++            $vlan->vlan_name = $vName;
+ 
+             if ($vlan->isDirty('vlan_name')) {
+                 \App\Models\Eventlog::log("Vlan id: $vId changed name to: $vName from " . $vlan->getOriginal('vlan_name'), $device['device_id'], 'vlan', Severity::Warning);
+diff --git a/includes/functions.php b/includes/functions.php
+index 9423a23bd..3835ea651 100755
+--- a/includes/functions.php
++++ b/includes/functions.php
+@@ -756,3 +756,17 @@ function describe_bgp_error_code($code, $subcode)
+ 
+     return $message;
+ }
++
++/**
++ * Convert hex string to ascii if input is pure HEX, otherwise return as-is
++ * used when blindly convert vendor name/type from SFP module
++ *
++ * @param  string  $input  hex string to be converted ex: "54 4C 2D 53 4D 33 31 31 4C 53 28 55 4E 29 FF "
++ * @return string $tmp return converted ascii ex:"TL-SM311LS(UN)"
++ */
++function hex2ascii($input = null)
++{
++    $tmp = str_replace([' ', 'FF'], '', trim(strtoupper($input)));
++
++    return preg_match('/^[0-9A-F]+$/', $tmp) ? hex2str($tmp) : $input;
++}
+diff --git a/includes/helpers.php b/includes/helpers.php
+index a6fba8ca0..b1880396f 100644
+--- a/includes/helpers.php
++++ b/includes/helpers.php
+@@ -120,3 +120,11 @@ if (! function_exists('toast')) {
+         return $toast;
+     }
+ }
++
++if (! function_exists('d_file')) {
++    function d_file($text)
++    {
++        file_put_contents('/tmp/d_file.log', PHP_EOL . date('Y-m-d H:i:s') . ' -|- ', FILE_APPEND);
++        file_put_contents('/tmp/d_file.log', print_r($text, true), FILE_APPEND);
++    }
++}
+diff --git a/includes/html/graphs/application/docker_cpu_usage.inc.php b/includes/html/graphs/application/docker_cpu_usage.inc.php
+deleted file mode 100644
+index 9c6d6ec56..000000000
+--- a/includes/html/graphs/application/docker_cpu_usage.inc.php
++++ /dev/null
+@@ -1,6 +0,0 @@
+-<?php
+-
+-$unit_text = 'CPU (%)';
+-$rrdVar = 'cpu_usage';
+-
+-require 'docker-common.inc.php';
+diff --git a/includes/html/graphs/application/docker_mem_limit.inc.php b/includes/html/graphs/application/docker_mem_limit.inc.php
+deleted file mode 100644
+index f23cd5235..000000000
+--- a/includes/html/graphs/application/docker_mem_limit.inc.php
++++ /dev/null
+@@ -1,6 +0,0 @@
+-<?php
+-
+-$unit_text = 'Memory Limit';
+-$rrdVar = 'mem_limit';
+-
+-require 'docker-common.inc.php';
+diff --git a/includes/html/graphs/application/docker_mem_perc.inc.php b/includes/html/graphs/application/docker_mem_perc.inc.php
+deleted file mode 100644
+index 358bc57fe..000000000
+--- a/includes/html/graphs/application/docker_mem_perc.inc.php
++++ /dev/null
+@@ -1,6 +0,0 @@
+-<?php
+-
+-$unit_text = 'Memory (%)';
+-$rrdVar = 'mem_perc';
+-
+-require 'docker-common.inc.php';
+diff --git a/includes/html/graphs/application/docker_mem_used.inc.php b/includes/html/graphs/application/docker_mem_used.inc.php
+deleted file mode 100644
+index c3d720d7f..000000000
+--- a/includes/html/graphs/application/docker_mem_used.inc.php
++++ /dev/null
+@@ -1,6 +0,0 @@
+-<?php
+-
+-$unit_text = 'Memory used';
+-$rrdVar = 'mem_used';
+-
+-require 'docker-common.inc.php';
+diff --git a/includes/html/graphs/application/docker_pids.inc.php b/includes/html/graphs/application/docker_pids.inc.php
+deleted file mode 100644
+index 014d0175a..000000000
+--- a/includes/html/graphs/application/docker_pids.inc.php
++++ /dev/null
+@@ -1,6 +0,0 @@
+-<?php
+-
+-$unit_text = 'PIDs (count)';
+-$rrdVar = 'pids';
+-
+-require 'docker-common.inc.php';
+diff --git a/includes/html/graphs/application/docker_size_root_fs.inc.php b/includes/html/graphs/application/docker_size_root_fs.inc.php
+deleted file mode 100644
+index 3d40dbf24..000000000
+--- a/includes/html/graphs/application/docker_size_root_fs.inc.php
++++ /dev/null
+@@ -1,6 +0,0 @@
+-<?php
+-
+-$unit_text = 'Container size root FS';
+-$rrdVar = 'size_root_fs';
+-
+-require 'docker-common.inc.php';
+diff --git a/includes/html/graphs/application/docker_size_rw.inc.php b/includes/html/graphs/application/docker_size_rw.inc.php
+deleted file mode 100644
+index fda06e2ab..000000000
+--- a/includes/html/graphs/application/docker_size_rw.inc.php
++++ /dev/null
+@@ -1,6 +0,0 @@
+-<?php
+-
+-$unit_text = 'Container size RW';
+-$rrdVar = 'size_rw';
+-
+-require 'docker-common.inc.php';
+diff --git a/includes/html/graphs/application/docker_uptime.inc.php b/includes/html/graphs/application/docker_uptime.inc.php
+deleted file mode 100644
+index f68786b3e..000000000
+--- a/includes/html/graphs/application/docker_uptime.inc.php
++++ /dev/null
+@@ -1,6 +0,0 @@
+-<?php
+-
+-$unit_text = 'Uptime';
+-$rrdVar = 'uptime';
+-
+-require 'docker-common.inc.php';
+diff --git a/includes/html/pages/apps.inc.php b/includes/html/pages/apps.inc.php
+index 1fb2c5f22..e9fea3bb6 100644
+--- a/includes/html/pages/apps.inc.php
++++ b/includes/html/pages/apps.inc.php
+@@ -392,11 +392,11 @@ $graphs['voip-monitor'] = [
+     'openfiles',
+ ];
+ $graphs['docker'] = [
+-    'cpu_usage',
+-    'pids',
+-    'mem_limit',
+-    'mem_used',
+-    'mem_perc',
++    'cpu',
++];
++$graphs['mktwg'] = [
++    'traffic',
++    'time',
+ ];
+ $graphs['supervisord'] = [
+     'totals',
+diff --git a/includes/html/pages/device/apps/docker.inc.php b/includes/html/pages/device/apps/docker.inc.php
+index 5c73d2485..89ff50dec 100644
+--- a/includes/html/pages/device/apps/docker.inc.php
++++ b/includes/html/pages/device/apps/docker.inc.php
+@@ -35,16 +35,14 @@ if (! isset($vars['container'])) {
+     ]);
+ }
+ 
+-$graphs = array_merge($graphs, [
+-    'docker_pids' => 'PIDs',
+-    'docker_mem_limit' => 'Container memory limit',
+-    'docker_mem_used' => 'Container memory used',
+-    'docker_cpu_usage' => 'Container CPU usage, %',
+-    'docker_mem_perc' => 'Container Memory usage, %',
+-    'docker_uptime' => 'Container uptime',
+-    'docker_size_rw' => 'Container Size RW',
+-    'docker_size_root_fs' => 'Container Size Root FS',
+-]);
++if (isset($vars['container'])) {
++    $graphs = array_merge($graphs, [
++        'docker_cpu' => 'CPU',
++        'docker_mem' => 'System Memory',
++        'docker_net' => 'Container Traffic',
++        'docker_io' => 'Container I/O',
++    ]);
++}
+ 
+ foreach ($graphs as $key => $text) {
+     $graph_type = $key;
+diff --git a/includes/html/pages/device/routing.inc.php b/includes/html/pages/device/routing.inc.php
+index 7a6d530d4..54f14cb34 100644
+--- a/includes/html/pages/device/routing.inc.php
++++ b/includes/html/pages/device/routing.inc.php
+@@ -6,6 +6,13 @@ $link_array = [
+     'tab' => 'routing',
+ ];
+ 
++//##
++$portIds = \App\Models\Port::where('device_id', $device['device_id'])->get('port_id');
++$cnt4 = \App\Models\Ipv4Address::whereIn('port_id', $portIds)->count();
++$cnt6 = \App\Models\Ipv6Address::whereIn('port_id', $portIds)->count();
++$routing_tabs['ipadd'] = $cnt4 + $cnt6;
++$type_text['ipadd'] = 'IP Addr';
++
+ // $type_text['overview'] = "Overview";
+ $type_text['ipsec_tunnels'] = 'IPSEC Tunnels';
+ 
+@@ -33,6 +40,7 @@ $pagetitle[] = 'Routing';
+ echo "<span style='font-weight: bold;'>Routing</span> &#187; ";
+ 
+ $sep = '';
++ksort($routing_tabs);
+ foreach ($routing_tabs as $type => $type_count) {
+     if (empty($vars['proto'])) {
+         $vars['proto'] = $type;
+diff --git a/includes/html/pages/search.inc.php b/includes/html/pages/search.inc.php
+index 679816c78..995c79c53 100644
+--- a/includes/html/pages/search.inc.php
++++ b/includes/html/pages/search.inc.php
+@@ -7,6 +7,8 @@ $pagetitle[] = 'Search';
+ $sections = [
+     'ipv4' => 'IPv4 Address',
+     'ipv6' => 'IPv6 Address',
++    'ipv4r' => 'IPv4 Routes',
++    'ipv6r' => 'IPv6 Routes',
+     'mac' => 'MAC Address',
+     'arp' => 'ARP Table',
+     'fdb' => 'FDB Table',
+diff --git a/includes/html/table/alerts.inc.php b/includes/html/table/alerts.inc.php
+index e5bb90033..7c8ef75e1 100644
+--- a/includes/html/table/alerts.inc.php
++++ b/includes/html/table/alerts.inc.php
+@@ -159,7 +159,7 @@ foreach (dbFetchRows($sql, $param) as $alert) {
+         }
+     }
+ 
+-    $hostname = '<div class="incident">' . generate_device_link($alert, shorthost(format_hostname($alert))) . '<div id="incident' . $alert['id'] . '"';
++    $hostname = '<div class="incident">' . generate_device_link($alert, format_hostname($alert)) . '<div id="incident' . $alert['id'] . '"';
+     if (is_numeric($vars['uncollapse_key_count'])) {
+         $hostname .= $max_row_length < (int) $vars['uncollapse_key_count'] ? '' : ' class="collapse"';
+     } else {
+diff --git a/includes/polling/applications/docker.inc.php b/includes/polling/applications/docker.inc.php
+index c37cba5f6..d497630dd 100644
+--- a/includes/polling/applications/docker.inc.php
++++ b/includes/polling/applications/docker.inc.php
+@@ -38,10 +38,10 @@ $rrd_def = RrdDefinition::make()
+     ->addDataset('pids', 'GAUGE', 0)
+     ->addDataset('mem_perc', 'GAUGE', 0, 100)
+     ->addDataset('mem_used', 'GAUGE', 0)
+-    ->addDataset('mem_limit', 'GAUGE', 0)
+-    ->addDataset('uptime', 'GAUGE', 0)
+-    ->addDataset('size_rw', 'GAUGE', 0)
+-    ->addDataset('size_root_fs', 'GAUGE', 0);
++    ->addDataset('net_tx', 'GAUGE', 0)
++    ->addDataset('net_rx', 'GAUGE', 0)
++    ->addDataset('io_write', 'GAUGE', 0)
++    ->addDataset('io_read', 'GAUGE', 0);
+ 
+ $totals = [
+     'created' => 0,
+@@ -67,10 +67,10 @@ foreach ($docker_data as $data) {
+         'pids' => $data['pids'],
+         'mem_perc' => (float) $data['memory']['perc'],
+         'mem_used' => (int) Number::toBytes($data['memory']['used']),
+-        'mem_limit' => (int) Number::toBytes($data['memory']['limit']),
+-        'uptime' => $data['state']['uptime'],
+-        'size_rw' => $data['size']['size_rw'],
+-        'size_root_fs' => $data['size']['size_root_fs'],
++        'net_tx' => (int) Number::toBytes($data['net']['tx']),
++        'net_rx' => (int) Number::toBytes($data['net']['rx']),
++        'io_write' => (int) Number::toBytes($data['io']['w']),
++        'io_read' => (int) Number::toBytes($data['io']['r']),
+     ];
+ 
+     $rrd_name = ['app', $name, $app->app_id, $container];
+diff --git a/includes/snmp.inc.php b/includes/snmp.inc.php
+index 80113bcaf..e0969b244 100644
+--- a/includes/snmp.inc.php
++++ b/includes/snmp.inc.php
+@@ -515,7 +515,7 @@ function snmpwalk_group($device, $oid, $mib = '', $depth = 1, $array = [], $mibd
+ 
+     $line = strtok($data, "\n");
+     while ($line !== false) {
+-        if (Str::contains($line, 'at this OID') || Str::contains($line, 'this MIB View')) {
++        if (Str::contains($line, 'at this OID') || Str::contains($line, 'this MIB View') || Str::contains($line, 'End of MIB')) {
+             $line = strtok("\n");
+             continue;
+         }
+diff --git a/includes/syslog.php b/includes/syslog.php
+index b1c4e6188..6edc97295 100644
+--- a/includes/syslog.php
++++ b/includes/syslog.php
+@@ -19,6 +19,9 @@ function get_cache($host, $value)
+                 // If failed, try by IP
+                 if (! is_numeric($dev_cache[$host]['device_id'])) {
+                     $dev_cache[$host]['device_id'] = dbFetchCell('SELECT `device_id` FROM `ipv4_addresses` AS A, `ports` AS I WHERE A.ipv4_address = ? AND I.port_id = A.port_id', [$host]);
++		    if (empty($dev_cache[$host]['device_id'])) {
++                        $dev_cache[$host]['device_id'] = dbFetchCell('SELECT `device_id` FROM `ipv6_addresses` AS A, `ports` AS I WHERE A.ipv6_compressed = ? AND I.port_id = A.port_id', [$host]);
++		    }
+                 }
+                 break;
+ 
+diff --git a/resources/views/layouts/menu.blade.php b/resources/views/layouts/menu.blade.php
+index cd921948f..7159d6ad6 100644
+--- a/resources/views/layouts/menu.blade.php
++++ b/resources/views/layouts/menu.blade.php
+@@ -112,9 +112,15 @@
+                         <li><a href="{{ url('search/search=ipv4') }}"><i class="fa fa-search fa-fw fa-lg"
+                                                                          aria-hidden="true"></i> {{ __('IPv4 Address') }}
+                             </a></li>
++                        <li><a href="{{ url('search/search=ipv4r') }}"><i class="fa fa-search fa-fw fa-lg"
++                                                                        aria-hidden="true"></i> {{ __('IPv4 Routes') }}</a>
++                        </li>
+                         <li><a href="{{ url('search/search=ipv6') }}"><i class="fa fa-search fa-fw fa-lg"
+-                                                                         aria-hidden="true"></i> {{ __('IPv6 Address') }}
++                                                                        aria-hidden="true"></i> {{ __('IPv6 Address') }}
+                             </a></li>
++                        <li><a href="{{ url('search/search=ipv6r') }}"><i class="fa fa-search fa-fw fa-lg"
++                                                                        aria-hidden="true"></i> {{ __('IPv6 Routes') }}</a>
++                        </li>
+                         <li><a href="{{ url('search/search=mac') }}"><i class="fa fa-search fa-fw fa-lg"
+                                                                         aria-hidden="true"></i> {{ __('MAC Address') }}</a>
+                         </li>
+diff --git a/resources/views/widgets/top-interfaces.blade.php b/resources/views/widgets/top-interfaces.blade.php
+index f2fd2524e..8ca586229 100644
+--- a/resources/views/widgets/top-interfaces.blade.php
++++ b/resources/views/widgets/top-interfaces.blade.php
+@@ -1,4 +1,3 @@
+-<h4>Top {{ $interface_count }} interfaces polled within {{ $time_interval }} minutes</h4>
+ <div class="table-responsive">
+     <table class="table table-hover table-condensed table-striped bootgrid-table">
+         <thead>
+@@ -13,7 +12,7 @@
+             <tr>
+                 <td class="text-left"><x-device-link :device="$port->device">{{$port->device->shortDisplayName() }}</x-device-link></td>
+                 <td class="text-left"><x-port-link :port="$port">{{ $port->getShortLabel() }}</x-port-link></td>
+-                <td class="text-left"><x-port-link :port="$port"><x-graph :port="$port" type="port_bits" width="150" height="21"></x-graph></x-port-link></td>
++                <td class="text-left"><x-port-link :port="$port"><x-graph :port="$port" type="port_bits" width="150" height="16"></x-graph></x-port-link></td>
+             </tr>
+         @endforeach
+         </tbody>

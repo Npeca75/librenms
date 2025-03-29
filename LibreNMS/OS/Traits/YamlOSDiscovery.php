@@ -100,7 +100,7 @@ trait YamlOSDiscovery
 
         Log::debug('Yaml location data:', $data);
 
-        $location = $this->findFirst($data, $name, $numeric) ?? snmp_get($this->getDeviceArray(), 'SNMPv2-MIB::sysLocation.0', '-Oqv');
+        $location = $this->findFirst($data, $name, $numeric) ?? str_replace(', ', ',', snmp_get($this->getDeviceArray(), 'SNMPv2-MIB::sysLocation.0', '-Oqv'));
 
         return new Location([
             'location' => StringHelpers::inferEncoding($location),

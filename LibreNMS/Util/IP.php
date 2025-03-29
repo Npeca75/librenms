@@ -120,6 +120,11 @@ abstract class IP
      */
     public static function parse($ip, $ignore_errors = false)
     {
+
+#        if (str_contains($ip, '0000:0000:0000:0000:0000:0000:0000:')) {
+#            $ip = str_replace('0000:0000:0000:0000:0000:0000:0000:', '0000:0000:0000:0000:0000:0000:', $ip);
+#        }
+
         try {
             return new IPv4($ip);
         } catch (InvalidIpException $e) {

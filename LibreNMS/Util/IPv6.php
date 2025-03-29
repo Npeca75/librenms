@@ -76,7 +76,7 @@ class IPv6 extends IP
      */
     public static function isValid($ipv6, $exclude_reserved = false)
     {
-        $filter = FILTER_FLAG_IPV6;
+        $filter = FILTER_FLAG_IPV6 | FILTER_FLAG_NO_RES_RANGE;
         if ($exclude_reserved) {
             $filter |= FILTER_FLAG_NO_RES_RANGE | FILTER_FLAG_GLOBAL_RANGE;
         }
@@ -163,10 +163,11 @@ class IPv6 extends IP
      */
     public function uncompressed()
     {
+#        $rpt = (substr_count($this->ip, '.') == 3) ? 7 : 8;
+        $rpt = preg_match("/:\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\z/", $this->ip)  ? 7 : 8;
         // remove ::
-        $replacement = ':' . str_repeat('0000:', 8 - substr_count($this->ip, ':'));
+        $replacement = ':' . str_repeat('0000:', $rpt - substr_count($this->ip, ':'));
         $ip = str_replace('::', $replacement, $this->ip);
-
         // zero pad
         $parts = explode(':', $ip, 8);
 

@@ -910,6 +910,9 @@ function find_device_id($name = '', $ip = '', $mac_address = '')
     if ($name && \LibreNMS\Util\Validate::hostname($name)) {
         $where[] = '`hostname`=?';
         $params[] = $name;
+        $where[] = '`sysName`=?';
+        $params[] = $name;
+
 
         if ($mydomain = Config::get('mydomain')) {
             $where[] = '`hostname`=?';
@@ -925,12 +928,14 @@ function find_device_id($name = '', $ip = '', $mac_address = '')
         $where[] = '`hostname`=?';
         $params[] = $ip;
 
+/*
         try {
             $params[] = IP::fromHexString($ip)->packed();
             $where[] = '`ip`=?';
         } catch (InvalidIpException $e) {
             //
         }
+*/
     }
 
     if (! empty($where)) {
@@ -1041,4 +1046,9 @@ function find_port_id($description, $identifier = '', $device_id = 0, $mac_addre
     $sql = "SELECT * FROM ($queries LIMIT 1) p";
 
     return (int) dbFetchCell($sql, $params);
+}
+
+function normalizeSysName($sysName = ''): string
+{
+    return rtrim(str_replace(['.MP.', '.TS.'], '', $sysName), '.'); //strip artefacts from device name, jetstream LLDP extension
 }
