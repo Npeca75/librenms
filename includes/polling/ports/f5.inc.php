@@ -28,7 +28,7 @@ unset($f5_stats[0]);
 
 foreach ($ifmib_oids as $oid) {
     echo "$oid ";
-    $tmp_port_stats = snmpwalk_cache_oid($device, $oid, $tmp_port_stats, 'IF-MIB', null, '-OQUst');
+    $tmp_port_stats = snmpwalk_cache_oid($device, $oid, [], 'IF-MIB', null, '-OQUst');
 }
 
 $required = [
