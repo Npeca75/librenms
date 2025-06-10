@@ -13,6 +13,7 @@
  */
 
 use App\Actions\Device\ValidateDeviceAndCreate;
+use App\Facades\PortCache;
 use App\Models\Device;
 use App\Models\Eventlog;
 use Illuminate\Support\Facades\Log;
@@ -917,61 +918,7 @@ function find_device_id($name = '', $ip = '', $mac_address = '')
  * @param  string  $mac_address  check against ifPhysAddress (should be in lowercase hexadecimal)
  * @return int
  */
-function find_port_id($description, $identifier = '', $device_id = 0, $mac_address = null)
+function find_port_id($descr = '', $ident = '', $device_id = 0, $mac = null)
 {
-    if (! ($device_id || $mac_address)) {
-        return 0;
-    }
-
-    $statements = [];
-    $params = [];
-
-    if ($device_id) {
-        if ($description) {
-            // order is important here, the standard says this is ifDescr, which some mfg confuse with ifName
-            $statements[] = 'SELECT `port_id` FROM `ports` WHERE `device_id`=? AND (`ifDescr`=? OR `ifName`=?)';
-            $params[] = $device_id;
-            $params[] = $description;
-            $params[] = $description;
-        }
-
-        if ($identifier) {
-            if (is_numeric($identifier)) {
-                $statements[] = 'SELECT `port_id` FROM `ports` WHERE `device_id`=? AND (`ifIndex`=? OR `ifAlias`=?)';
-            } else {
-                $statements[] = 'SELECT `port_id` FROM `ports` WHERE `device_id`=? AND (`ifDescr`=? OR `ifName`=?)';
-            }
-            $params[] = $device_id;
-            $params[] = $identifier;
-            $params[] = $identifier;
-        }
-
-        if ($description) {
-            // we check ifAlias last because this is a user editable field, but some bad LLDP implementations use it
-            $statements[] = 'SELECT `port_id` FROM `ports` WHERE `device_id`=? AND `ifAlias`=?';
-            $params[] = $device_id;
-            $params[] = $description;
-        }
-    }
-
-    if ($mac_address) {
-        $mac_statement = 'SELECT `port_id` FROM `ports` WHERE ';
-        if ($device_id) {
-            $mac_statement .= '`device_id`=? AND ';
-            $params[] = $device_id;
-        }
-        $mac_statement .= '`ifPhysAddress`=?';
-
-        $statements[] = $mac_statement;
-        $params[] = $mac_address;
-    }
-
-    if (empty($statements)) {
-        return 0;
-    }
-
-    $queries = implode(' UNION ', $statements);
-    $sql = "SELECT * FROM ($queries LIMIT 1) p";
-
-    return (int) dbFetchCell($sql, $params);
+    return PortCache::findPortId($descr, $ident, $device_id, $mac);
 }

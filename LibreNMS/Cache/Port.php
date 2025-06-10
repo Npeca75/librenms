@@ -20,6 +20,15 @@ class Port
     /** @var array<int, array<int, string>> */
     private array $ifNameMaps = [];
 
+    /** @var array<int, array<int, string>> */
+    private array $ifAliasMaps = [];
+
+    /** @var array<int, array<int, string>> */
+    private array $ifDescrMaps = [];
+
+    /** @var array<int, array<int, string>> */
+    private array $ifPhysAddressMaps = [];
+
     /** @var array<int, array<string, array<string, string>>> */
     private array $ipMaps = [];
 
@@ -104,6 +113,63 @@ class Port
     }
 
     /**
+     * Get a port_id from an ifAlias.
+     * Must be constrained to a device, when $device is null, use primary device
+     */
+    public function getIdFromIfAlias(string $ifAlias, \App\Models\Device|int|null $device = null): ?int
+    {
+        $device_id = $this->deviceToId($device);
+
+        if (! array_key_exists($device_id, $this->ifAliasMaps)) {
+            $this->ifAliasMaps[$device_id] = \App\Models\Port::where('device_id', $device_id)->pluck('port_id', 'ifAlias')->all();
+        }
+
+        if (isset($this->ifAliasMaps[$device_id][$ifAlias])) {
+            return (int) $this->ifAliasMaps[$device_id][$ifAlias];
+        }
+
+        return null;
+    }
+
+    /**
+     * Get a port_id from an ifDescr.
+     * Must be constrained to a device, when $device is null, use primary device
+     */
+    public function getIdFromIfDescr(string $ifDescr, \App\Models\Device|int|null $device = null): ?int
+    {
+        $device_id = $this->deviceToId($device);
+
+        if (! array_key_exists($device_id, $this->ifDescrMaps)) {
+            $this->ifDescrMaps[$device_id] = \App\Models\Port::where('device_id', $device_id)->pluck('port_id', 'ifDescr')->all();
+        }
+
+        if (isset($this->ifDescrMaps[$device_id][$ifDescr])) {
+            return (int) $this->ifDescrMaps[$device_id][$ifDescr];
+        }
+
+        return null;
+    }
+
+    /**
+     * Get a port_id from an ifPhysAddress.
+     * Must be constrained to a device, when $device is null, use primary device
+     */
+    public function getIdFromIfPhysAddress(string $ifPhysAddress, \App\Models\Device|int|null $device = null): ?int
+    {
+        $device_id = $this->deviceToId($device);
+
+        if (! array_key_exists($device_id, $this->ifPhysAddressMaps)) {
+            $this->ifPhysAddressMaps[$device_id] = \App\Models\Port::where('device_id', $device_id)->pluck('port_id', 'ifPhysAddress')->all();
+        }
+
+        if (isset($this->ifPhysAddressMaps[$device_id][$ifPhysAddress])) {
+            return (int) $this->ifPhysAddressMaps[$device_id][$ifPhysAddress];
+        }
+
+        return null;
+    }
+
+    /**
      * Search for a port_id by IP addresses assigned to that port
      * *Note, if $device is null, search all devices.
      */
@@ -155,6 +221,39 @@ class Port
         }
 
         return $this->ifNameMaps[$device_id][$ifIndex] ?? null;
+    }
+
+    public function findPortId($descr = '', $ident = '', int $device_id = null, $mac = null): ?string
+    {
+        if (empty($device_id) && empty($mac)) {
+            return 0;
+        }
+
+        $port_id = 0;
+
+        if (! empty($device_id)) {
+            if (! empty($descr)) {
+                $port_id = (empty($port_id)) ? $this->getIdFromIfDescr($descr, $device_id) : $port_id;
+                $port_id = (empty($port_id)) ? $this->getIdFromIfName($descr, $device_id) : $port_id;
+            }
+
+            if (! empty($ident)) {
+                if (is_numeric($ident)) {
+                    $port_id = (empty($port_id)) ? $this->getIdFromIfIndex($ident, $device_id) : $port_id;
+                    $port_id = (empty($port_id)) ? $this->getIdFromIfAlias($ident, $device_id) : $port_id;
+                } else {
+                    $port_id = (empty($port_id)) ? $this->getIdFromIfDescr($ident, $device_id) : $port_id;
+                    $port_id = (empty($port_id)) ? $this->getIdFromIfName($ident, $device_id) : $port_id;
+                }
+            }
+
+            $port_id = (empty($port_id) && ! empty($descr)) ? $this->getIdFromIfDescr($descr, $device_id) : $port_id;
+            $port_id = (empty($port_id) && ! empty($mac)) ? $this->getIdFromIfPhysAddress($mac, $device_id) : $port_id;
+        } else {
+            $port_id = (! empty($mac)) ? \App\Models\Port::where('ifPhysAddress', $mac)->value('port_id') : $port_id;
+        }
+
+        return $port_id;
     }
 
     private function cachePort(int $port_id): void
