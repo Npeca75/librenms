@@ -51,6 +51,7 @@ use LibreNMS\Interfaces\Discovery\Sensors\WirelessApCountDiscovery;
 use LibreNMS\Interfaces\Discovery\Sensors\WirelessClientsDiscovery;
 use LibreNMS\Interfaces\Discovery\SlaDiscovery;
 use LibreNMS\Interfaces\Discovery\TransceiverDiscovery;
+use LibreNMS\Interfaces\Discovery\VlanDiscovery;
 use LibreNMS\Interfaces\Polling\NacPolling;
 use LibreNMS\Interfaces\Polling\OSPolling;
 use LibreNMS\Interfaces\Polling\SlaPolling;
@@ -58,6 +59,7 @@ use LibreNMS\OS;
 use LibreNMS\OS\Traits\EntityMib;
 use LibreNMS\RRD\RrdDefinition;
 use LibreNMS\Util\Mac;
+use SnmpQuery;
 
 class Vrp extends OS implements
     MempoolsDiscovery,
@@ -69,7 +71,8 @@ class Vrp extends OS implements
     SlaDiscovery,
     SlaPolling,
     TransceiverDiscovery,
-    OSDiscovery
+    OSDiscovery,
+    VlanDiscovery
 {
     use SyncsModels;
     use EntityMib {EntityMib::discoverEntityPhysical as discoverBaseEntityPhysical; }
@@ -696,5 +699,62 @@ class Vrp extends OS implements
             d_echo('The following datasources were collected for #' . $sla->sla_nr . ":\n");
             d_echo($collected);
         }
+    }
+
+    public function discoverVlans(): array
+    {
+        $vlans = SnmpQuery::hideMib()->walk('HUAWEI-L2VLAN-MIB::hwL2VlanDescr')->table(1);
+        $vlans = SnmpQuery::hideMib()->walk('HUAWEI-L2VLAN-MIB::hwL2VlanRowStatus')->table(1, $vlans);
+        $vlans = SnmpQuery::hideMib()->walk('HUAWEI-L2VLAN-MIB::hwL2VlanType')->table(1, $vlans);
+
+        if (! empty($vlans)) {
+            $maxVlanId = 0;
+            foreach ($vlans as $vlanId => $vlanData) {
+                $maxVlanId = ($vlanId > $maxVlanId) ? $vlanId : $maxVlanId; // highest VlanID value
+                if (in_array($vlanData['hwL2VlanRowStatus'], [1, 4, 5])) { // active(1), createAndGo(4), createAndWait(5)
+                    $vlanArray['vlans'][] = [
+                        'vlan_name' => $vlanData['hwL2VlanDescr'] ?? '',
+                        'vlan_vlan' => $vlanId,
+                        'vlan_domain' => 1,
+                        'vlan_type' => $vlanData['hwL2VlanType'] ?? '',
+                    ];
+                }
+            }
+
+            $portsIndexes = SnmpQuery::hideMib()->walk('HUAWEI-L2IF-MIB::hwL2IfPortIfIndex')->table(1);
+            $portsData = SnmpQuery::hideMib()->walk('HUAWEI-L2IF-MIB::hwL2IfTrunkAllowPassVlanListLow')->table(1);
+            $portsData = SnmpQuery::hideMib()->walk('HUAWEI-L2IF-MIB::hwL2IfHybridTaggedVlanListLow')->table(1, $portsData);
+            // high table
+            if ($maxVlanId > 2047) {
+                $portsData = SnmpQuery::hideMib()->walk('HUAWEI-L2IF-MIB::hwL2IfTrunkAllowPassVlanListHigh')->table(1, $portsData);
+                $portsData = SnmpQuery::hideMib()->walk('HUAWEI-L2IF-MIB::hwL2IfHybridTaggedVlanListHigh')->table(1, $portsData);
+            }
+
+            if (! empty($portsData)) {
+                foreach ($portsData as $pdIndex => $vlanData) {
+                    if (! empty($portsIndexes[$pdIndex])) {
+                        $ifIndex = $portsIndexes[$pdIndex]['hwL2IfPortIfIndex'];
+                        foreach (['Low', 'High'] as $hilo) {
+                            foreach (['TrunkAllowPass', 'HybridTagged'] as $pType) {
+                                $oid = 'hwL2If' . $pType . 'VlanList' . $hilo;
+                                if (! empty($vlanData[$oid])) {
+                                    $vlansOnPort = q_bridge_bits2indices($vlanData[$oid]);
+                                    foreach ($vlansOnPort as $vlanIdOnPort) {
+                                        $vlanIdOnPort = ($hilo == 'High') ? ($vlanIdOnPort + 2047) : ($vlanIdOnPort - 1);
+                                        $vlanArray['ports'][] = [
+                                            'vlan_id' => $vlanIdOnPort,
+                                            'baseport' => $ifIndex,
+                                            'untagged' => 0,
+                                        ];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return $vlanArray ?? [];
     }
 }

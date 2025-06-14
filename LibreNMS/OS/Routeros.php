@@ -45,17 +45,20 @@ use LibreNMS\Interfaces\Discovery\Sensors\WirelessRsrqDiscovery;
 use LibreNMS\Interfaces\Discovery\Sensors\WirelessRssiDiscovery;
 use LibreNMS\Interfaces\Discovery\Sensors\WirelessSinrDiscovery;
 use LibreNMS\Interfaces\Discovery\TransceiverDiscovery;
+use LibreNMS\Interfaces\Discovery\VlanDiscovery;
 use LibreNMS\Interfaces\Polling\OSPolling;
 use LibreNMS\Interfaces\Polling\QosPolling;
 use LibreNMS\OS;
 use LibreNMS\RRD\RrdDefinition;
 use LibreNMS\Util\Number;
+use SnmpQuery;
 
 class Routeros extends OS implements
     OSPolling,
     QosDiscovery,
     QosPolling,
     TransceiverDiscovery,
+    VlanDiscovery,
     WirelessCcqDiscovery,
     WirelessClientsDiscovery,
     WirelessFrequencyDiscovery,
@@ -664,5 +667,43 @@ class Routeros extends OS implements
                 'entity_physical_index' => $ifIndex,
             ]);
         });
+    }
+
+    public function discoverVlans(): array
+    {
+        $scripts = SnmpQuery::walk('MIKROTIK-MIB::mtxrScriptName')->table();
+        $scriptIndex = array_flip($scripts['MIKROTIK-MIB::mtxrScriptName'] ?? [])['LNMS_vlans'] ?? null;
+
+        if (! empty($scriptIndex)) {
+            $data = SnmpQuery::get('MIKROTIK-MIB::mtxrScriptRunOutput.' . $scriptIndex)->value();
+            $ifNames = array_flip($this->getCacheByIndex('ifName', 'IF-MIB'));
+            $oldId = 0;
+
+            foreach (preg_split("/((\r?\n)|(\r\n?))/", $data) as $line) {
+                [$mtType, $vlanId, $mtData] = array_map('trim', explode(',', $line));
+
+                if ($mtType == 'N') {
+                    $vlanNames[$vlanId] = $mtData;
+                    continue;
+                }
+
+                if ($oldId != $vlanId) {
+                    $oldId = $vlanId;
+                    $vlanArray['vlans'][] = [
+                        'vlan_vlan' => $vlanId,
+                        'vlan_domain' => 1,
+                        'vlan_name' => $vlanNames[$vlanId] ?? 'Vlan_' . $vlanId,
+                    ];
+                }
+
+                $vlanArray['ports'][] = [
+                    'vlan' => $vlanId,
+                    'baseport' => $ifNames[$mtData] ?? 0,
+                    'untagged' => ($mtType == 'U') ? 1 : 0,
+                ];
+            }
+        }
+
+        return $vlanArray ?? [];
     }
 }

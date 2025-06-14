@@ -10,10 +10,12 @@ use Illuminate\Support\Facades\Log;
 use LibreNMS\Exceptions\InvalidIpException;
 use LibreNMS\Interfaces\Discovery\Ipv6AddressDiscovery;
 use LibreNMS\Interfaces\Discovery\RouteDiscovery;
+use LibreNMS\Interfaces\Discovery\VlanDiscovery;
 use LibreNMS\OS;
 use LibreNMS\Util\IPv6;
+use SnmpQuery;
 
-class Jetstream extends OS implements Ipv6AddressDiscovery, RouteDiscovery
+class Jetstream extends OS implements Ipv6AddressDiscovery, RouteDiscovery, VlanDiscovery
 {
     public function discoverIpv6Addresses(): Collection
     {
@@ -115,5 +117,56 @@ class Jetstream extends OS implements Ipv6AddressDiscovery, RouteDiscovery
         }));
 
         return $routes->filter();
+    }
+
+    public function discoverVlans(): array
+    {
+        $vlanArray = [];
+
+        $vlanConfigTable = SnmpQuery::hideMib()->walk('TPLINK-DOT1Q-VLAN-MIB::vlanConfigTable')->table(1);
+        $vlanPortConfigTable = SnmpQuery::hideMib()->walk('TPLINK-DOT1Q-VLAN-MIB::vlanPortConfigTable')->table(1);
+
+        foreach ($vlanPortConfigTable as $ifIndex => $data) {
+            $dot1dBasePortIfIndex[$data['vlanPortNumber']] = $ifIndex;
+        }
+
+        foreach ($vlanConfigTable as $vlan_id => $data) {
+            $vlanArray['vlans'][] = [
+                'vlan_vlan' => $vlan_id,
+                'vlan_domain' => 1,
+                'vlan_name' => $data['dot1qVlanDescription'],
+            ];
+
+            $types = ['vlanTagPortMemberAdd' => 0, 'vlanUntagPortMemberAdd' => 1];
+
+            foreach ($types as $type => $tag) {
+                $expand = $this->jetstreamExpand($data[$type] ?? []);
+                foreach ($expand as $key => $port) {
+                    $vlanArray['ports'][] = [
+                        'vlan' => $vlan_id,
+                        'baseport' => $dot1dBasePortIfIndex[$port] ?? 0,
+                        'untagged' => $tag,
+                    ];
+                }
+            }
+        }
+
+        return $vlanArray;
+    }
+
+    private function jetstreamExpand($var): array
+    {
+        $result = [];
+
+        preg_match_all('#(LAG|\d+/\d+/)(\d+)(?:-(\d+))?#', $var, $lags);
+
+        foreach ($lags[2] as $index => $start) {
+            $end = $lags[3][$index] ?: $start;
+            for ($i = $start; $i <= $end; $i++) {
+                $result[] = $lags[1][$index] . $i; //need to be in form LAGx or 1/0/x
+            }
+        }
+
+        return $result;
     }
 }

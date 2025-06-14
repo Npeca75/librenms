@@ -31,9 +31,11 @@ use Illuminate\Support\Str;
 use LibreNMS\Device\Processor;
 use LibreNMS\Interfaces\Discovery\OSDiscovery;
 use LibreNMS\Interfaces\Discovery\ProcessorDiscovery;
+use LibreNMS\Interfaces\Discovery\VlanDiscovery;
 use LibreNMS\OS;
+use SnmpQuery;
 
-class Boss extends OS implements OSDiscovery, ProcessorDiscovery
+class Boss extends OS implements OSDiscovery, ProcessorDiscovery, VlanDiscovery
 {
     public function discoverOS(Device $device): void
     {
@@ -94,5 +96,47 @@ class Boss extends OS implements OSDiscovery, ProcessorDiscovery
         }
 
         return $processors;
+    }
+
+    public function discoverVlans(): array
+    {
+        $vlanArray = [];
+
+        $vlans = SnmpQuery::hideMib()->walk('RC-VLAN-MIB::rcVlanName')->table(1);
+        $tagoruntag = SnmpQuery::hideMib()->walk('RC-VLAN-MIB::rcVlanPortMembers')->table(1);
+        $port_pvids = SnmpQuery::hideMib()->walk('RC-VLAN-MIB::rcVlanPortDefaultVlanId')->table(1);
+        $port_mode = SnmpQuery::hideMib()->walk('RC-VLAN-MIB::rcVlanPortPerformTagging')->table(1);
+
+        $dot1dBasePortIfIndex = SnmpQuery::hideMib()->walk('BRIDGE-MIB::dot1dBasePortIfIndex')->table();
+        $dot1dBasePortIfIndex = $dot1dBasePortIfIndex['dot1dBasePortIfIndex'] ?? [];
+
+        foreach ($vlans as $vlan_id => $vlan) {
+            $vlanArray['vlans'][] = [
+                'vlan_vlan' => $vlan_id,
+                'vlan_name' => $vlan['rcVlanName'] ?? '',
+                'vlan_domain' => 1,
+            ];
+
+            $egress_ids = q_bridge_bits2indices($tagoruntag[$vlan_id]['rcVlanPortMembers']);
+            $untagged_ids = [];
+
+            foreach ($port_pvids as $port => $port_num) {
+                if ($port_num['rcVlanPortDefaultVlanId'] == $vlan_id &&
+                ($port_mode[$port]['rcVlanPortPerformTagging'] == 'false' || $port_mode[$port]['rcVlanPortPerformTagging'] == 4)) {
+                    array_push($untagged_ids, $port);
+                }
+            }
+
+            foreach ($egress_ids as $port_id) {
+                $ifIndex = $dot1dBasePortIfIndex[$port_id - 1] ?? 0; // -1 fixes off by one error
+                $vlanArray['ports'][] = [
+                    'vlan' => $vlan_id,
+                    'baseport' => $ifIndex,
+                    'untagged' => (in_array($port_id - 1, $untagged_ids) ? 1 : 0),
+                ];
+            }
+        }
+
+        return $vlanArray;
     }
 }

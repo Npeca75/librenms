@@ -8588,7 +8588,7 @@
                 },
                 {
                     "vlan": 31,
-                    "baseport": 100,
+                    "baseport": 1000001,
                     "priority": 0,
                     "state": "unknown",
                     "cost": 0,
