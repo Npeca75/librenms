@@ -811,6 +811,10 @@ class Vrp extends OS implements
             }
         }
 
+        if ($fdbt->isEmpty()) {
+            $fdbt = parent::discoverFdbTable();
+        }
+
         return $fdbt;
 
         /*
