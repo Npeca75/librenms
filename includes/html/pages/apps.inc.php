@@ -396,11 +396,11 @@ $graphs['voip-monitor'] = [
     'openfiles',
 ];
 $graphs['docker'] = [
-    'cpu_usage',
-    'pids',
-    'mem_limit',
-    'mem_used',
-    'mem_perc',
+    'cpu',
+];
+$graphs['mktwg'] = [
+    'traffic',
+    'time',
 ];
 $graphs['supervisord'] = [
     'totals',

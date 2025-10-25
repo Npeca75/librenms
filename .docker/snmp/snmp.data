@@ -1,0 +1,21 @@
+TYPE=dsapc
+TMPDIR=/tmp/snmptmp
+PROGLOC=/etc/snmp/progs
+
+gZLC="24"
+gLAT="44.695748"
+gLON="18.048912"
+gCITY="Matuzici"
+gMGMNIF="vlan111"
+
+SYSCON="peca.nesovanovic@stcable.net"
+SYSDES="Cisco SRV #1"
+COM=ktvEGEread
+
+VN1="system"
+VN10="MGMN_cmts"
+VN20="MGMN_ftth"
+VN80="MGMN_pve"
+VN100="Public"
+VN111="MGMN_ege"
+VN530="MCAST_530"
