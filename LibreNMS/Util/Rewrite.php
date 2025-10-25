@@ -117,6 +117,7 @@ class Rewrite
             'tengigabitethernet' => 'Te',
             'ten-gigabitethernet' => 'Te',
             'tengige' => 'Te',
+            'fiberethernet' => 'Gi',
             'gigabitethernet' => 'Gi',
             'fastethernet' => 'Fa',
             'ethernet' => 'Et',

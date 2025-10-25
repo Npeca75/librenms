@@ -1,0 +1,18 @@
+TYPE=dsapc
+TAG=SNMP
+PRIO=daemon.info
+TMPDIR=/tmp/snmptmp
+PROGLOC=/etc/snmp/progs
+
+gZLC="02"
+SYSLOC="aaa [,]"
+SYSCON="peca.nesovanovic@stcable.net"
+SYSDES="file server"
+COM=aaaaa
+
+VN1="system"
+VN2="guest"
+VN100="prn"
+VN200="lan"
+VN255="mgmn"
+VN1000="srv"
