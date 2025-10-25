@@ -1,0 +1,14 @@
+os: mrv-sw
+text: 'MRV Switch'
+type: network
+icon: mrv
+group: mrv
+ifname: true
+bad_snmpEngineTime: true
+over:
+    - { graph: device_bits, text: 'Device Traffic' }
+mib_dir: mrv
+discovery:
+    -
+        sysObjectID:
+            - .1.3.6.1.4.1.629.6.10.84

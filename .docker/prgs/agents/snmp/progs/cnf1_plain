@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# shellcheck source=/dev/null
+source /etc/snmp/snmp.data
+
+logger -s -t "$TAG" -p "$PRIO" "Prepare $TYPE"
+mkdir -p "$TMPDIR"
+
+PORT=; OLDPORT=; VLANS=; VLAN=;
+rm -fr ${TMPDIR}/portMembers ${TMPDIR}/portUntagged ${TMPDIR}/vlans
+
+VLANS="$(ip link | grep -Eo 'vlan[0-9]+\:' | tr -d '[:alpha:]' | tr -d ':' | sort -un | xargs)"
+
+for v in $VLANS; do
+    eval "INTM$v='vlan$v '"\$"INTM$v"; # Vlan IF member
+    eval "INTU$v='vlan$v '"\$"INTU$v"; # Vlan IF untagged
+done
+
+echo $VLANS > $TMPDIR/vlans
+logger -s -t "$TAG" -p "$PRIO" "VLANs: $VLANS"
+
+for vlid in $VLANS; do
+    eval TMP=\$"INTM$vlid"
+    [ ! -z "$TMP" ] &&  echo "INTM$vlid=\"$TMP\"" >> ${TMPDIR}/portMembers
+    eval TMP=\$"INTU$vlid"
+    [ ! -z "$INTU$vlid" ] && echo "INTU$vlid=\"$TMP\"" >> ${TMPDIR}/portUntagged
+done
