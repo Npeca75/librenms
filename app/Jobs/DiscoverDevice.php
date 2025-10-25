@@ -43,34 +43,42 @@ class DiscoverDevice implements ShouldQueue
      */
     public function handle(): void
     {
-        $this->initDevice();
-        App::forgetInstance('sensor-discovery');
-        DiscoveringDevice::dispatch($this->device);
-        $measurement = Measurement::start('discover');
-        $measurement->manager()->checkpoint(); // don't count previous stats
+        if ($this->initDevice()) {
+            App::forgetInstance('sensor-discovery');
+            DiscoveringDevice::dispatch($this->device);
+            $measurement = Measurement::start('discover');
+            $measurement->manager()->checkpoint(); // don't count previous stats
 
-        $this->discoverModules();
+            $this->discoverModules();
 
-        $measurement->end();
+            $measurement->end();
 
-        Log::info(sprintf("\n>>> Discovered %s (%s) in %0.3f seconds <<<",
-            $this->device->displayName(),
-            $this->device->device_id,
-            $measurement->getDuration()));
+            Log::info(sprintf("\n>>> Discovered %s (%s) in %0.3f seconds <<<",
+                $this->device->displayName(),
+                $this->device->device_id,
+                $measurement->getDuration()));
 
-        Log::channel('single')->alert(sprintf('INFO: device:discover %s (%s) discovered in %0.3fs',
-            $this->device->hostname,
-            $this->device->device_id,
-            $measurement->getDuration()));
+            Log::channel('single')->alert(sprintf('INFO: device:discover %s (%s) discovered in %0.3fs',
+                $this->device->hostname,
+                $this->device->device_id,
+                $measurement->getDuration()));
 
-        DeviceDiscovered::dispatch($this->device);
+            DeviceDiscovered::dispatch($this->device);
+        }
     }
 
-    private function initDevice(): void
+    private function initDevice(): bool
     {
         \DeviceCache::setPrimary($this->device_id);
         $this->device = \DeviceCache::getPrimary();
         $this->device->ip = Dns::lookupIp($this->device) ?? $this->device->ip;
+
+        $poller_group = \App\Facades\LibrenmsConfig::get('distributed_poller_group');
+        if (! empty($poller_group) && $this->device->poller_group != $poller_group) {
+            Log::info('Device ' . $this->device->hostname . ' does not belong in poller group: ' . $poller_group);
+
+            return false;
+        }
 
         $this->deviceArray = $this->device->toArray();
         if ($os_group = LibrenmsConfig::get("os.{$this->device->os}.group")) {
@@ -84,6 +92,8 @@ OS:        %s
 IP:        %s
 
 EOH, $this->device->hostname, $os_group ? " ($os_group)" : '', $this->device->device_id, $this->device->os, $this->device->ip));
+
+        return true;
     }
 
     private function discoverModules(): void
