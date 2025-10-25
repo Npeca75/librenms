@@ -404,6 +404,10 @@ function snmpwalk_cache_oid($device, $oid, $array = [], $mib = null, $mibdir = n
             continue;
         }
 
+        if (preg_match('/^.+\s=\sNULL$/', $entry, $tmp)) {
+            continue;
+        }
+
         [$oid,$value] = explode('=', $entry, 2);
         $oid = trim($oid);
         $value = trim($value, "\" \\\n\r");
@@ -516,7 +520,7 @@ function snmpwalk_group($device, $oid, $mib = '', $depth = 1, $array = [], $mibd
 
     $line = strtok($data, "\n");
     while ($line !== false) {
-        if (Str::contains($line, 'at this OID') || Str::contains($line, 'this MIB View')) {
+        if (Str::contains($line, 'at this OID') || Str::contains($line, 'this MIB View') || Str::contains($line, 'End of MIB')) {
             $line = strtok("\n");
             continue;
         }

@@ -29,6 +29,7 @@ namespace LibreNMS\Modules;
 use App\Facades\LibrenmsConfig;
 use App\Facades\PortCache;
 use App\Models\Device;
+use App\Models\Port;
 use App\Models\Route;
 use App\Observers\ModuleModelObserver;
 use Illuminate\Support\Collection;
@@ -100,6 +101,53 @@ class Routes implements Module
             }
         }
 
+        //emulate RouteTable
+        $portIds = Port::where('device_id', $os->getDeviceId())
+            ->select('ports.port_id', 'ports.ifIndex', 'ipv4_addresses.ipv4_address', 'ipv4_addresses.ipv4_prefixlen')
+            ->join('ipv4_addresses', 'ports.port_id', '=', 'ipv4_addresses.port_id')->get();
+
+        foreach ($portIds as $fromDb) {
+            $ipv4 = new IPv4($fromDb['ipv4_address'] . '/' . $fromDb['ipv4_prefixlen']);
+            $routesFromDiscovery->push(new Route([
+                'port_id' => $fromDb['port_id'],
+                'context_name' => '',
+                'inetCidrRouteIfIndex' => $fromDb['ifIndex'],
+                'inetCidrRouteType' => '3',
+                'inetCidrRouteProto' => '2',
+                'inetCidrRouteNextHopAS' => '0',
+                'inetCidrRouteMetric1' => '1',
+                'inetCidrRouteDestType' => 'ipv4',
+                'inetCidrRouteDest' => $ipv4->getNetworkAddress(),
+                'inetCidrRouteNextHopType' => 'ipv4',
+                'inetCidrRouteNextHop' => '0.0.0.0',
+                'inetCidrRoutePolicy' => 'zeroDotZero.' . $fromDb['ifIndex'],
+                'inetCidrRoutePfxLen' => $fromDb['ipv4_prefixlen'],
+            ]));
+        }
+
+        $portIds = Port::where('device_id', $os->getDeviceId())
+            ->select('ports.port_id', 'ports.ifIndex', 'ipv6_addresses.ipv6_address', 'ipv6_addresses.ipv6_prefixlen')
+            ->join('ipv6_addresses', 'ports.port_id', '=', 'ipv6_addresses.port_id')->get();
+
+        foreach ($portIds as $fromDb) {
+            $ipv6 = new IPv6($fromDb['ipv6_address'] . '/' . $fromDb['ipv6_prefixlen']);
+            $routesFromDiscovery->push(new Route([
+                'port_id' => $fromDb['port_id'],
+                'context_name' => '',
+                'inetCidrRouteIfIndex' => $fromDb['ifIndex'],
+                'inetCidrRouteType' => '3',
+                'inetCidrRouteProto' => '2',
+                'inetCidrRouteNextHopAS' => '0',
+                'inetCidrRouteMetric1' => '1',
+                'inetCidrRouteDestType' => 'ipv6',
+                'inetCidrRouteDest' => $ipv6->getNetworkAddress(),
+                'inetCidrRouteNextHopType' => 'ipv6',
+                'inetCidrRouteNextHop' => '0000:0000:0000:0000:0000:0000:0000:0000',
+                'inetCidrRoutePolicy' => 'zeroDotZero.' . $fromDb['ifIndex'],
+                'inetCidrRoutePfxLen' => $fromDb['ipv6_prefixlen'],
+            ]));
+        }
+
         $routes = $routesFromOs->merge($routesFromDiscovery)->filter(function ($data) use ($update_timestamp) {
             $dst = trim(str_replace('"', '', $data->inetCidrRouteDest ?? ''));
             $hop = trim(str_replace('"', '', $data->inetCidrRouteNextHop ?? ''));
@@ -160,15 +208,7 @@ class Routes implements Module
         });
 
         ModuleModelObserver::observe(Route::class);
-
-        $routesExisting = $os->getDevice()->routes()->get()->transform(function ($row) {
-            unset($row->route_id);
-
-            return $row;
-        });
-        $this->syncModels($os->getDevice(), 'routes', $this->fillNew($routesExisting, $routes));
-        // We add (or update) routes, but old ones are kept for history
-        // Cleaning is done in `daily`.
+        $this->syncModels($os->getDevice(), 'routes', $routes);
     }
 
     /**
