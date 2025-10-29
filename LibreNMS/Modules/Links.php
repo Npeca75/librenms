@@ -20,6 +20,10 @@ use LibreNMS\Util\Mac;
 use LibreNMS\Util\StringHelpers;
 use SnmpQuery;
 
+/// AVOID the dbFacline() legacy function helpers
+use Illuminate\Support\Facades\DB;
+
+
 class Links implements Module
 {
     use SyncsModels;
@@ -151,6 +155,13 @@ class Links implements Module
         }
 
         if (! empty($lldpRows)) {
+
+            // Create or Update the table ports_lldplocportid with the lldpLocPortId entries for this device, 
+            // along with the LibreNMS device ID and LibreNMS port ID. This makes it possible to look up the 
+            // lldpLocPortId later to make links between device ports that use less standard identifiers (such 
+            // as MAC address)
+            discoverLldpLocPortId($device);
+
             $oidsremadd = SnmpQuery::hideMib()->numeric()->walk('LLDP-MIB::lldpRemManAddrIfSubtype')->values();
             foreach ($oidsremadd as $key => $tmp1) {
                 $res = preg_match("/1\.0\.8802\.1\.1\.2\.1\.4\.2\.1\.3\.([^\.]*)\.([^\.]*)\.([^\.]*)\.([^\.]*)\.([^\.]*).(([^\.]*)(\.([^\.]*))+)/", $key, $matches);
@@ -280,31 +291,33 @@ class Links implements Module
 
                     $remoteSysName = StringHelpers::linksRemSysName($data['lldpRemSysName']);
                     $remoteSysName = (empty($remoteSysName)) ? StringHelpers::linksRemSysName($data['lldpRemSysDesc']) : $remoteSysName;
-
                     $remoteDeviceIp = $data['lldpRemManAddr'] ?? '';
                     $remoteDeviceId = find_device_id($remoteSysName, $remoteDeviceIp, $remoteMac);
 
-                    $remotePortId = find_port_id($data['lldpRemPortDesc'] ?? null, $data['lldpRemPortId'], $remoteDeviceId);
+                    // Lookup the device ID and port ID by checking the ports_lldpLocPortId table
+                    $remotePortIdByLldpPortId = find_port_id_by_lldp_port_id($data["lldpRemPortId"], $remoteDeviceId);
+
+                    $remotePortId = $remotePortIdByLldpPortId;
                     $remotePortName = (empty($remotePortId)) ? $remotePortName . ' (' . $remoteMac . ')' : $remotePortName;
 
                     if (! empty($data['localPortId']) && (! empty($remoteSysName))) {
-                        $suffix = (! empty($data['lldpRemManAddr'])) ? '#' . $data['lldpRemManAddr'] : '';
-                        $links->push(new Link([
-                            'local_port_id' => $data['localPortId'],
-                            'remote_hostname' => $remoteSysName,
-                            'remote_device_id' => $remoteDeviceId,
-                            'remote_port_id' => $remotePortId ?? 0,
-                            'active' => 1,
-                            'protocol' => 'lldp' . $suffix,
-                            'remote_port' => $remotePortName,
-                            'remote_platform' => null,
-                            'remote_version' => $data['lldpRemSysDesc'] ?? '',
-                        ]));
+                            $suffix = (! empty($data['lldpRemManAddr'])) ? '#' . $data['lldpRemManAddr'] : '';
+                            $links->push(new Link([
+                                'local_port_id' => $data['localPortId'],
+                                'remote_hostname' => $remoteSysName,
+                                'remote_device_id' => $remoteDeviceId,
+                                'remote_port_id' => $remotePortId ?? 0,
+                                'active' => 1,
+                                'protocol' => 'lldp' . $suffix,
+                                'remote_port' => $remotePortName,
+                                'remote_platform' => null,
+                                'remote_version' => $data['lldpRemSysDesc'] ?? '',
+                            ]));
+                        }
                     }
-                }
             }
         }
-
+    
         return $links->filter();
     }
 
