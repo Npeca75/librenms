@@ -28,6 +28,70 @@ use LibreNMS\Util\IP;
 use LibreNMS\Util\Number;
 use LibreNMS\Util\UserFuncHelper;
 
+function discoverLldpLocPortId($device)
+{
+    d_echo('Store lldpLocPortId');
+    $module_start = microtime(true);
+
+    $live_ports = [];
+    $port_stats = [];
+    $live_ports = snmpwalk_cache_oid($device, 'lldpLocPortId', $port_stats, 'LLDP-MIB');
+
+    $db_lldp_ports = [];
+
+    // Replaced dbFetchRows() with DB::table to avoid Ignition query-recorder type error when bindings are used
+    $db_lldp_ports = DB::table('ports_lldplocportid')
+        ->where('device_id', $device['device_id'])
+        ->get()
+        ->map(fn($r) => (array)$r)  // convert stdClass to associative array
+        ->all();    
+
+    $db_ports = [];
+    $db_ports = DB::table('ports')
+            ->where('device_id', $device['device_id'])
+            ->get()
+            ->map(fn($r) => (array)$r)  // convert stdClass → associative array
+            ->all();    
+
+    foreach ($live_ports as $ifIndex => $snmp_data) {
+        $db_lldp_index = array_search($snmp_data['lldpLocPortId'], array_column($db_lldp_ports, 'lldpLocPortId'));
+        $port_index = array_search($ifIndex, array_column($db_ports, 'ifIndex'));
+
+        if (is_int($port_index)) {
+            $port_id = $db_ports[$port_index]['port_id'];
+        } else {
+            $port_id = NULL;
+        }
+        $data['device_id'] = $device['device_id'];
+        $data['lldpLocPortId'] = $snmp_data['lldpLocPortId'];
+        $data['port_id'] = $port_id;
+
+        if (!is_int($db_lldp_index)) {
+            d_echo('Adding:    ' . $snmp_data['lldpLocPortId']);
+            dbInsert($data, 'ports_lldplocportid');
+        } else {
+            if ($port_id != $db_lldp_ports[$db_lldp_index]['port_id']) {
+                d_echo('Updating:  ' . $snmp_data['lldpLocPortId'] . ' port_id ' . $db_lldp_ports[$db_lldp_index]['port_id'] . ' to ' . $port_id);
+                dbUpdate($data, 'ports_lldplocportid', '`device_id` = ? and `lldpLocPortId` = ?', [$data['device_id'], $data['lldpLocPortId']]);
+            } else {
+                d_echo('No Change: ' . $snmp_data['lldpLocPortId']);
+            }
+        }
+    }
+    foreach($db_lldp_ports as $db_data) {
+        $db_lldp_ports_index = array_search($db_data['lldpLocPortId'], array_column($live_ports, 'lldpLocPortId'));
+        if (!is_int($db_lldp_ports_index)) {
+            d_echo('Deleting:  ' . $db_data['lldpLocPortId']);
+            dbDelete('ports_lldplocportid', '`device_id` = ? and `lldpLocPortId` = ?', [$device['device_id'], $db_data['lldpLocPortId']]);
+        }
+    }
+    $module_time = microtime(true) - $module_start;
+    $module_time = substr($module_time, 0, 5);
+    d_echo($module_time . ' seconds');
+
+    //dd('debug stop');
+}
+
 /**
  * @param  string  $hostname
  * @param  array  $device
@@ -910,6 +974,35 @@ function find_device_id($name = '', $ip = '', $mac_address = '')
 
     return 0;
 }
+
+
+
+/**
+ * Try to find a port by lldp port id
+ *
+ * @param string $lldpremportid matched against ports.lldpLocPortId
+ * @param int $device_id restrict search to ports on a specific device
+ * @return int
+ */
+function find_port_id_by_lldp_port_id($lldpremportid, $device_id)
+{
+    if (!$device_id) {
+        return 0;
+    }
+    d_echo($lldpremportid . ':' . $device_id);
+    $sql = "SELECT `port_id` FROM `ports_lldplocportid` WHERE `device_id`=? AND `lldpLocPortId`=? LIMIT 1";
+    $params[] = $device_id;
+    $params[] = $lldpremportid;
+
+    $remote_port_id = (int)dbFetchCell($sql, $params);
+    if (!$remote_port_id) {
+        return 0;
+    } else {
+        return $remote_port_id;
+    }
+}
+
+
 
 /**
  * Try to find a port by ifDescr, ifName, ifAlias, or MAC
