@@ -58,7 +58,7 @@ class EltexMes24xx extends OS implements TransceiverDiscovery, Ipv6AddressDiscov
         $ifIndexToEntIndexMap = array_flip($this->getIfIndexEntPhysicalMap());
 
         $trans = SnmpQuery::hideMib()->enumStrings()->cache()->walk('ELTEX-PHY-MIB::eltexPhyTransceiverInfoTable')
-            ->mapTable(function ($data, $ifIndex) use ($ifIndexToEntIndexMap) {
+            ->mapTable(fn ($data, $ifIndex) use ($ifIndexToEntIndexMap) {
                 if ($data['eltexPhyTransceiverInfoType'] == 'unknown') {
                     return false;
                 }
@@ -66,7 +66,7 @@ class EltexMes24xx extends OS implements TransceiverDiscovery, Ipv6AddressDiscov
                 return new Transceiver([
                     'port_id' => PortCache::getIdFromIfIndex($ifIndex, $this->getDevice()),
                     'index' => $ifIndex,
-                    'connector' => $data['eltexPhyTransceiverInfoConnectorType'] ? strtoupper($data['eltexPhyTransceiverInfoConnectorType']) : null,
+                    'connector' => $data['eltexPhyTransceiverInfoConnectorType'] ? strtoupper((string) $data['eltexPhyTransceiverInfoConnectorType']) : null,  
                     'distance' => $data['eltexPhyTransceiverInfoTransferDistance'] ?? null,
                     'model' => $data['eltexPhyTransceiverInfoPartNumber'] ?? null,
                     'revision' => $data['eltexPhyTransceiverInfoVendorRevision'] ?? null,
