@@ -151,7 +151,6 @@ modules:
                             oid: ATEN-IPMI-MIB::psuStatus
                             op: '='
                             value: 0
-                    
         state:
             data:
                 -
