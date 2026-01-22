@@ -32,7 +32,7 @@ use LibreNMS\Enum\Severity;
 use LibreNMS\Util\ProgressList;
 
 // fetch applications from the client
-$results = snmpwalk_cache_oid($device, 'nsExtendStatus', [], 'NET-SNMP-EXTEND-MIB');
+$results = SnmpQuery::hideMib()->options(['-OQUs'])->walk('NET-SNMP-EXTEND-MIB::nsExtendStatus')->table(1);
 
 // Load our list of available applications
 $applications = [];
