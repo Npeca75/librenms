@@ -14,6 +14,7 @@
 
 use App\Actions\Device\ValidateDeviceAndCreate;
 use App\Facades\LibrenmsConfig;
+use App\Facades\PortCache;
 use App\Models\Device;
 use App\Models\Eventlog;
 use App\Models\Port;
@@ -773,6 +774,8 @@ function find_device_id($name = '', $ip = '', $mac_address = '')
     if ($name && \LibreNMS\Util\Validate::hostname($name)) {
         $where[] = '`hostname`=?';
         $params[] = $name;
+        $where[] = '`sysName`=?';
+        $params[] = $name;
 
         if ($mydomain = LibrenmsConfig::get('mydomain')) {
             $where[] = '`hostname`=?';
@@ -788,12 +791,14 @@ function find_device_id($name = '', $ip = '', $mac_address = '')
         $where[] = '`hostname`=?';
         $params[] = $ip;
 
-        try {
-            $params[] = IP::fromHexString($ip)->packed();
-            $where[] = '`ip`=?';
-        } catch (InvalidIpException) {
-            //
-        }
+        /*
+                try {
+                    $params[] = IP::fromHexString($ip)->packed();
+                    $where[] = '`ip`=?';
+                } catch (InvalidIpException $e) {
+                    //
+                }
+        */
     }
 
     if (! empty($where)) {
@@ -849,59 +854,23 @@ function find_device_id($name = '', $ip = '', $mac_address = '')
  */
 function find_port_id($description, $identifier = '', $device_id = 0, $mac_address = null)
 {
-    if (! ($device_id || $mac_address)) {
-        return 0;
-    }
-
-    $statements = [];
-    $params = [];
-
-    if ($device_id) {
-        if ($description) {
-            // order is important here, the standard says this is ifDescr, which some mfg confuse with ifName
-            $statements[] = 'SELECT `port_id` FROM `ports` WHERE `device_id`=? AND (`ifDescr`=? OR `ifName`=?)';
-            $params[] = $device_id;
-            $params[] = $description;
-            $params[] = $description;
+    $findMe = [$description, $identifier, $mac_address];
+    $toFind = (is_array($findMe)) ? $findMe : [0 => $findMe];
+    $portId = 0;
+    foreach ($toFind as $search) {
+        if (empty($search)) {
+            continue;
         }
-
-        if ($identifier) {
-            if (is_numeric($identifier)) {
-                $statements[] = 'SELECT `port_id` FROM `ports` WHERE `device_id`=? AND (`ifIndex`=? OR `ifAlias`=?)';
-            } else {
-                $statements[] = 'SELECT `port_id` FROM `ports` WHERE `device_id`=? AND (`ifDescr`=? OR `ifName`=?)';
-            }
-            $params[] = $device_id;
-            $params[] = $identifier;
-            $params[] = $identifier;
-        }
-
-        if ($description) {
-            // we check ifAlias last because this is a user editable field, but some bad LLDP implementations use it
-            $statements[] = 'SELECT `port_id` FROM `ports` WHERE `device_id`=? AND `ifAlias`=?';
-            $params[] = $device_id;
-            $params[] = $description;
+        if (! empty($device_id)) {
+            $portId = (empty($portId)) ? PortCache::getIdFromIfDescr($search, $device_id) : $portId;
+            $portId = (empty($portId)) ? PortCache::getIdFromIfName($search, $device_id) : $portId;
+            $portId = (empty($portId) && is_numeric($search)) ? PortCache::getIdFromIfIndex($search, $device_id) : $portId;
+            $portId = (empty($portId)) ? PortCache::getIdFromIfAlias($search, $device_id) : $portId;
+            $portId = (empty($portId)) ? PortCache::getIdFromIfPhysAddress($search, $device_id) : $portId;
+        } else {
+            $portId = (empty($portId)) ? \App\Models\Port::where('ifPhysAddress', $search)->value('port_id') ?? 0 : $portId;
         }
     }
 
-    if ($mac_address) {
-        $mac_statement = 'SELECT `port_id` FROM `ports` WHERE ';
-        if ($device_id) {
-            $mac_statement .= '`device_id`=? AND ';
-            $params[] = $device_id;
-        }
-        $mac_statement .= '`ifPhysAddress`=?';
-
-        $statements[] = $mac_statement;
-        $params[] = $mac_address;
-    }
-
-    if (empty($statements)) {
-        return 0;
-    }
-
-    $queries = implode(' UNION ', $statements);
-    $sql = "SELECT * FROM ($queries LIMIT 1) p";
-
-    return (int) dbFetchCell($sql, $params);
+    return $portId;
 }

@@ -120,3 +120,11 @@ if (! function_exists('toast')) {
         return $toast;
     }
 }
+
+if (! function_exists('d_file')) {
+    function d_file($text)
+    {
+        file_put_contents('/tmp/d_file.log', PHP_EOL . date('Y-m-d H:i:s') . ' -|- ', FILE_APPEND);
+        file_put_contents('/tmp/d_file.log', print_r($text, true), FILE_APPEND);
+    }
+}

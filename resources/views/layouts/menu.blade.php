@@ -105,9 +105,15 @@
                         <li><a href="{{ url('search/search=ipv4') }}"><i class="fa fa-search fa-fw fa-lg"
                                                                          aria-hidden="true"></i> {{ __('IPv4 Address') }}
                             </a></li>
+                        <li><a href="{{ url('search/search=ipv4r') }}"><i class="fa fa-search fa-fw fa-lg"
+                                                                        aria-hidden="true"></i> {{ __('IPv4 Routes') }}</a>
+                        </li>
                         <li><a href="{{ url('search/search=ipv6') }}"><i class="fa fa-search fa-fw fa-lg"
-                                                                         aria-hidden="true"></i> {{ __('IPv6 Address') }}
+                                                                        aria-hidden="true"></i> {{ __('IPv6 Address') }}
                             </a></li>
+                        <li><a href="{{ url('search/search=ipv6r') }}"><i class="fa fa-search fa-fw fa-lg"
+                                                                        aria-hidden="true"></i> {{ __('IPv6 Routes') }}</a>
+                        </li>
                         <li><a href="{{ url('search/search=mac') }}"><i class="fa fa-search fa-fw fa-lg"
                                                                         aria-hidden="true"></i> {{ __('MAC Address') }}</a>
                         </li>

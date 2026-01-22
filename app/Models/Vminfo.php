@@ -19,6 +19,7 @@ class Vminfo extends DeviceRelatedModel implements Keyable
     protected $table = 'vminfo';
     public $timestamps = false;
     protected $fillable = [
+        'device_id',
         'vm_type',
         'vmwVmVMID',
         'vmwVmDisplayName',

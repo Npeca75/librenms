@@ -33,7 +33,9 @@ use App\Facades\PortCache;
 use App\Models\Component;
 use App\Models\Device;
 use App\Models\EntPhysical;
+use App\Models\Link;
 use App\Models\Mempool;
+use App\Models\PortsFdb;
 use App\Models\PortsNac;
 use App\Models\PortVlan;
 use App\Models\Qos;
@@ -44,7 +46,10 @@ use App\Models\Vlan;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use LibreNMS\Config;
 use LibreNMS\Device\Processor;
+use LibreNMS\Interfaces\Discovery\FdbTableDiscovery;
+use LibreNMS\Interfaces\Discovery\LinkDiscovery;
 use LibreNMS\Interfaces\Discovery\MempoolsDiscovery;
 use LibreNMS\Interfaces\Discovery\OSDiscovery;
 use LibreNMS\Interfaces\Discovery\ProcessorDiscovery;
@@ -79,7 +84,9 @@ class Cisco extends OS implements
     StorageDiscovery,
     TransceiverDiscovery,
     VlanDiscovery,
-    VlanPortDiscovery
+    VlanPortDiscovery,
+    FdbTableDiscovery,
+    LinkDiscovery
 {
     use YamlOSDiscovery {
         YamlOSDiscovery::discoverOS as discoverYamlOS;
@@ -1092,5 +1099,87 @@ class Cisco extends OS implements
         }
 
         return $ports;
+    }
+
+    public function discoverFdbTable(): Collection
+    {
+        if (($QBridgeFdbTable = parent::discoverFdbTable())->isNotEmpty()) {
+            return $QBridgeFdbTable;
+        }
+
+        $fdbt = new Collection;
+
+        $fdbPort_table = $this->dot1dTpFdbPort();
+        $vtpdomains = SnmpQuery::walk('CISCO-VTP-MIB::managementDomainName')->table();
+        $vtpdomains = $vtpdomains['CISCO-VTP-MIB::managementDomainName'] ?? [];
+        $vlans = SnmpQuery::hideMib()->walk('CISCO-VTP-MIB::vtpVlanEntry')->table(2);
+
+        foreach ($vtpdomains as $vtpdomain_id => $vtpdomain) {
+            echo 'VTP Domain ' . $vtpdomain_id . ' > ';
+            foreach ($vlans[$vtpdomain_id] as $vlan_raw => $vlan) {
+                $vlan['vtpVlanState'] ??= 0;
+                echo "$vlan_raw ";
+                if (($vlan['vtpVlanState'] == 1) && ($vlan_raw < 1002 || $vlan_raw > 1005)) {
+                    $fdbPort_table = SnmpQuery::context($vlan_raw, 'vlan-')->walk('BRIDGE-MIB::dot1dTpFdbPort')->table();
+
+                    $portid_dict = [];
+                    $dot1dBasePortIfIndex = SnmpQuery::context($vlan_raw, 'vlan-')->walk('BRIDGE-MIB::dot1dBasePortIfIndex')->table(1);
+                    foreach ($dot1dBasePortIfIndex as $portLocal => $data) {
+                        $portid_dict[$portLocal] = PortCache::getIdFromIfIndex($data['BRIDGE-MIB::dot1dBasePortIfIndex'], $this->getDeviceId());
+                    }
+
+                    foreach ($fdbPort_table['BRIDGE-MIB::dot1dTpFdbPort'] ?? [] as $mac_address => $dot1dBasePort) {
+                        $fdbt->push(new PortsFdb([
+                            'port_id' => $portid_dict[$dot1dBasePort] ?? 0,
+                            'mac_address' => $mac_address,
+                            'vlan_id' => $vlan_raw,
+                        ]));
+                    }
+                }
+            }
+        }
+
+        return $fdbt->filter();
+    }
+
+    public function discoverLinks(): Collection
+    {
+        $links = new Collection;
+
+        $cdp_array = SnmpQuery::hideMib()->walk('CISCO-CDP-MIB::cdpCache')->table(2);
+        $data = [];
+        $remote_device_id = 0;
+
+        foreach ($cdp_array as $key => $cdp_if_array) {
+            $interface = \App\Facades\PortCache::getByIfIndex($key, $this->getDeviceId());
+
+            foreach ($cdp_if_array as $data) {
+                $data['cdpCacheDeviceId'] = StringHelpers::linksRemSysName($data['cdpCacheDeviceId'] ?? '');
+                if (empty($data['cdpCacheDeviceId'])) {
+                    continue;
+                }
+
+                $cdp_ip = (isset($data['cdpCacheAddress'])) ? IP::fromHexString($data['cdpCacheAddress'], true) : null;
+                $remote_device_id = find_device_id($data['cdpCacheDeviceId'], $cdp_ip);
+            }
+
+            if (! empty($interface['port_id']) && $data['cdpCacheDeviceId'] && $data['cdpCacheDevicePort']) {
+                $remote_port_id = find_port_id($data['cdpCacheDevicePort'], '', $remote_device_id);
+                $sufix = (! empty($cdp_ip)) ? '#' . $cdp_ip : '';
+                $links->push(new Link([
+                    'local_port_id' => $interface['port_id'],
+                    'remote_hostname' => $data['cdpCacheDeviceId'] ?? '',
+                    'remote_device_id' => $remote_device_id,
+                    'remote_port_id' => $remote_port_id,
+                    'active' => 1,
+                    'protocol' => 'cdp' . $sufix,
+                    'remote_port' => $data['cdpCacheDevicePort'] ?? '',
+                    'remote_platform' => $data['cdpCachePlatform'] ?? '',
+                    'remote_version' => $data['cdpCacheVersion'] ?? '',
+                ]));
+            }
+        }
+
+        return $links;
     }
 }

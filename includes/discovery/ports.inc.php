@@ -2,6 +2,7 @@
 
 // Build SNMP Cache Array
 use App\Facades\LibrenmsConfig;
+use App\Models\Port;
 use App\Models\PortGroup;
 use LibreNMS\Enum\PortAssociationMode;
 use LibreNMS\Util\StringHelpers;
@@ -65,6 +66,16 @@ if ($device['os'] == 'airos-af-ltu') {
 //Teleste Luminato ifOperStatus
 if ($device['os'] == 'luminato') {
     require base_path('includes/discovery/ports/luminato.inc.php');
+}
+
+//HPE-iLO
+if ($device['os'] == 'hpe-ilo') {
+    require base_path('includes/discovery/ports/hpe-ilo.inc.php');
+}
+
+//JETSTREAM old device
+if ($device['os'] == 'jetstream') {
+    require base_path('includes/discovery/ports/jetstream.inc.php');
 }
 
 //Moxa Etherdevice portName mapping
@@ -139,6 +150,9 @@ foreach ($port_stats as $ifIndex => $snmp_data) {
 
         // Port newly discovered?
         if ($port_id === null || ! isset($ports_db[$port_id]) || ! is_array($ports_db[$port_id])) {
+            //Port Association Mode = ifName
+            Port::where('device_id', $device['device_id'])->where('ifIndex', $ifIndex)->delete();
+
             $snmp_data['device_id'] = $device['device_id'];
             $port_id = dbInsert($snmp_data, 'ports');
 

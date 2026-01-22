@@ -19,6 +19,9 @@ function get_cache($host, $value)
                 // If failed, try by IP
                 if (! is_numeric($dev_cache[$host]['device_id'])) {
                     $dev_cache[$host]['device_id'] = dbFetchCell('SELECT `device_id` FROM `ipv4_addresses` AS A, `ports` AS I WHERE A.ipv4_address = ? AND I.port_id = A.port_id', [$host]);
+                    if (empty($dev_cache[$host]['device_id'])) {
+                        $dev_cache[$host]['device_id'] = dbFetchCell('SELECT `device_id` FROM `ipv6_addresses` AS A, `ports` AS I WHERE A.ipv6_compressed = ? AND I.port_id = A.port_id', [$host]);
+                    }
                 }
                 break;
 

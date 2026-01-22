@@ -35,16 +35,14 @@ if (! isset($vars['container'])) {
     ]);
 }
 
-$graphs = array_merge($graphs, [
-    'docker_pids' => 'PIDs',
-    'docker_mem_limit' => 'Container memory limit',
-    'docker_mem_used' => 'Container memory used',
-    'docker_cpu_usage' => 'Container CPU usage, %',
-    'docker_mem_perc' => 'Container Memory usage, %',
-    'docker_uptime' => 'Container uptime',
-    'docker_size_rw' => 'Container Size RW',
-    'docker_size_root_fs' => 'Container Size Root FS',
-]);
+if (isset($vars['container'])) {
+    $graphs = array_merge($graphs, [
+        'docker_cpu' => 'CPU',
+        'docker_mem' => 'System Memory',
+        'docker_net' => 'Container Traffic',
+        'docker_io' => 'Container I/O',
+    ]);
+}
 
 foreach ($graphs as $key => $text) {
     $graph_type = $key;

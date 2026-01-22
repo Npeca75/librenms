@@ -39,8 +39,8 @@ if (! empty($oids)) {
                 $value = $data['transBitrate'] ?? 0;
                 $oid = '.1.3.6.1.4.1.3715.17.3.3.1.2.' . $index;
             } else {
-                $value = $data['transBitrateMax'] ?? 0;
-                $oid = '.1.3.6.1.4.1.3715.17.3.3.1.4.' . $index;
+                $value = $data['transBitrate'] ?? 0;
+                $oid = '.1.3.6.1.4.1.3715.17.3.3.1.2.' . $index;
             }
             $ifExtModule = $data['ifExtModule'];
             unset($defrate);

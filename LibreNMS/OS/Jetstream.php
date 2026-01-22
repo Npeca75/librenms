@@ -28,21 +28,27 @@ namespace LibreNMS\OS;
 
 use App\Facades\PortCache;
 use App\Models\Ipv6Address;
+use App\Models\Link;
+use App\Models\PortsFdb;
 use App\Models\PortVlan;
 use App\Models\Route;
 use App\Models\Vlan;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use LibreNMS\Exceptions\InvalidIpException;
+use LibreNMS\Interfaces\Discovery\FdbTableDiscovery;
 use LibreNMS\Interfaces\Discovery\Ipv6AddressDiscovery;
+use LibreNMS\Interfaces\Discovery\LinkDiscovery;
 use LibreNMS\Interfaces\Discovery\RouteDiscovery;
 use LibreNMS\Interfaces\Discovery\VlanDiscovery;
 use LibreNMS\Interfaces\Discovery\VlanPortDiscovery;
 use LibreNMS\OS;
 use LibreNMS\Util\IPv6;
+use LibreNMS\Util\Mac;
+use LibreNMS\Util\StringHelpers;
 use SnmpQuery;
 
-class Jetstream extends OS implements Ipv6AddressDiscovery, RouteDiscovery, VlanDiscovery, VlanPortDiscovery
+class Jetstream extends OS implements Ipv6AddressDiscovery, RouteDiscovery, LinkDiscovery, FdbTableDiscovery, VlanDiscovery, VlanPortDiscovery
 {
     public function discoverIpv6Addresses(): Collection
     {
@@ -206,5 +212,76 @@ class Jetstream extends OS implements Ipv6AddressDiscovery, RouteDiscovery, Vlan
         }
 
         return $result;
+    }
+
+    public function discoverLinks(): Collection
+    {
+        $links = new Collection;
+
+        Log::info('JETSTREAM-LLDP MIB:');
+        $oids = SnmpQuery::hideMib()->walk('TPLINK-LLDPINFO-MIB::lldpNeighborInfoEntry')->table(2);
+        foreach ($oids as $ifIndex => $tmp) {
+            foreach ($tmp as $data) { // more than one neighbor on same port??
+                $port = PortCache::getByIfIndex($ifIndex, $this->getDeviceId());
+                $local_port_id = $port?->port_id;
+                $remote_hostname = $data['lldpNeighborDeviceName'] ?? '';
+                $remote_hostname = (empty($remote_hostname) && $data['lldpNeighborChassisIdType'] == 'Locally assigned') ? $data['lldpNeighborChassisId'] : $remote_hostname;
+                $remote_hostname = StringHelpers::linksRemSysName($remote_hostname);
+                $data['lldpNeighborPortDescr'] = StringHelpers::linksRemPortName($data['lldpNeighborDeviceDescr'] ?? '', $data['lldpNeighborPortDescr'] ?? '');
+                $data['lldpNeighborPortIdDescr'] = StringHelpers::linksRemPortName($data['lldpNeighborDeviceDescr'] ?? '', $data['lldpNeighborPortIdDescr'] ?? '');
+                $remote_device_id = find_device_id($data['lldpNeighborDeviceName']);
+                //broadcom based old tp-link ( <= 2)
+                $remote_port_descr = strlen($data['lldpNeighborPortIdDescr']) > 2 ? $data['lldpNeighborPortIdDescr'] ?? '' : $data['lldpNeighborPortDescr'] ?? '';
+                $remote_mac = ($data['lldpNeighborChassisIdType'] == 'MAC address') ? Mac::parse($data['lldpNeighborChassisId'] ?? '')->hex() : '';
+
+                $remote_port_id = find_port_id($remote_port_descr, $remote_mac, $remote_device_id);
+                $remote_port_descr = (empty($remote_port_id)) ? $remote_port_descr . ' (' . $remote_mac . ')' : $remote_port_descr;
+
+                $sufix = (! empty($data['lldpNeighborManageIpAddr'])) ? '#' . $data['lldpNeighborManageIpAddr'] : '';
+                $links->push(new Link([
+                    'local_port_id' => $local_port_id,
+                    'remote_hostname' => $remote_hostname,
+                    'remote_device_id' => $remote_device_id,
+                    'remote_port_id' => $remote_port_id,
+                    'active' => 1,
+                    'protocol' => 'lldp' . $sufix,
+                    'remote_port' => $remote_port_descr,
+                    'remote_platform' => null,
+                    'remote_version' => $data['lldpNeighborDeviceDescr'] ?? '',
+                ]));
+            }
+        }
+
+        return $links->filter();
+    }
+
+    public function discoverFdbTable(): Collection
+    {
+        $fdbt = new Collection;
+
+        $dot1qTpFdbPort = $this->dot1qTpFdbPort();
+
+        foreach ($dot1qTpFdbPort as $realVlan => $macData) {
+            foreach ($macData as $mac_address => $idx) {
+                $port_id = \App\Models\Port::findPortId([
+                    'gigabitEthernet 1/0/' . $idx,
+                    'gigabitEthernet 1/0/' . $idx . ' : copper',
+                    'gigabitEthernet 1/0/' . $idx . ' : fiber',
+                    'gigabitEthernet1/0/' . $idx,
+                ], $this->getDeviceId());
+
+                $fdbt->push(new PortsFdb([
+                    'port_id' => $port_id,
+                    'mac_address' => $mac_address,
+                    'vlan_id' => $realVlan,
+                ]));
+            }
+        }
+
+        if ($fdbt->isEmpty()) {
+            $fdbt = parent::discoverFdbTable();
+        }
+
+        return $fdbt;
     }
 }
