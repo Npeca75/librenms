@@ -32,3 +32,12 @@ RewriteCond %{REQUEST_URI} !\.(js|ico|txt|gif|jpg|png|css|php)
 RewriteRule ^(.*)$ index.php
 
 AcceptPathInfo On
+
+AuthUserFile /opt/librenms/.local/.htpasswd
+# AuthGroupFile /dev/null
+AuthName "taH pagh taHbe !!!"
+AuthType Basic
+
+<limit GET POST>
+require valid-user
+</limit>

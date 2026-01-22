@@ -1,0 +1,6 @@
+#
+*/6 *   * * *   root    /etc/snmp/progs/smart -c /etc/snmp/smart.config -u
+*/6 *   * * *   root    /etc/snmp/progs/proxmox_disks -u
+*/6 *   * * *   root    /etc/snmp/progs/proxmox_vminfo -u
+3-59/5 * * * *    root    /etc/snmp/progs/docker-stats.sh -u
+#[no newline !]

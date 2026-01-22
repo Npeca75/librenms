@@ -236,6 +236,8 @@ modules:
                             op: '!='
                             value: 2
         count:
+            options:
+                skip_value_lt: 1
             data:
                 -
                     oid: MIKROTIK-MIB::mtxrDHCPLeaseCount
