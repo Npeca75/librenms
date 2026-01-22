@@ -75,7 +75,7 @@ if ($device['os_group'] == 'unix' || $device['os'] == 'windows') {
         ];
 
         $agent_data = [];
-        foreach (explode('<<<', $agent_raw) as $section) {
+        foreach (explode('<<<', (string) $agent_raw) as $section) {
             if (empty($section)) {
                 continue;
             }
@@ -130,7 +130,7 @@ if ($device['os_group'] == 'unix' || $device['os'] == 'windows') {
             $data = [];
             foreach (explode("\n", $agent_data['ps:sep(9)']) as $process) {
                 $process = preg_replace('/\(([^,;]+),([0-9]*),([0-9]*),([0-9]*),([0-9]*),([0-9]*),([0-9]*),([0-9]*),([0-9]*),([0-9]*)?,?([0-9]*)\)(.*)/', '\\1|\\2|\\3|\\4|\\5|\\6|\\7|\\8|\\9|\\10|\\11|\\12', $process);
-                [$user, $VirtualSize, $WorkingSetSize, $zero, $processId, $PageFileUsage, $UserModeTime, $KernelModeTime, $HandleCount, $ThreadCount, $uptime, $process_name] = explode('|', $process, 12);
+                [$user, $VirtualSize, $WorkingSetSize, $zero, $processId, $PageFileUsage, $UserModeTime, $KernelModeTime, $HandleCount, $ThreadCount, $uptime, $process_name] = explode('|', (string) $process, 12);
                 if (! empty($process_name)) {
                     $cputime = ($UserModeTime + $KernelModeTime) / 10000000;
                     $days = floor($cputime / 86400);
@@ -189,18 +189,33 @@ if ($device['os_group'] == 'unix' || $device['os'] == 'windows') {
 
     // Use agent DMI data if available
     if (isset($agent_data['dmi'])) {
-        if ($agent_data['dmi']['system-product-name']) {
-            $hardware = ($agent_data['dmi']['system-manufacturer'] ? $agent_data['dmi']['system-manufacturer'] . ' ' : '') . $agent_data['dmi']['system-product-name'];
+        // Parse DMI string into associative array
+        $dmi = array_column(array_map(fn ($l) => explode('=', $l, 2), explode("\n", trim($agent_data['dmi']))), 1, 0);
+        $getDmiValue = function ($system_key, $baseboard_key, $generic_value) use ($dmi) {
+            if (isset($dmi[$system_key]) && $dmi[$system_key] !== $generic_value) {
+                return $dmi[$system_key];
+            }
 
+            return $dmi[$baseboard_key] ?? '';
+        };
+
+        $manufacturer = $getDmiValue('system-manufacturer', 'baseboard-manufacturer', 'System Manufacturer');
+        $product = $getDmiValue('system-product-name', 'baseboard-product-name', 'System Product Name');
+        if ($product || $manufacturer) {
             // Clean up Generic hardware descriptions
-            DeviceCache::getPrimary()->hardware = rewrite_generic_hardware($hardware);
-            unset($hardware);
+            DeviceCache::getPrimary()->hardware = str_replace([
+                ' Computer Corporation',
+                ' Corporation',
+                ' Inc.',
+            ], '', implode(' ', array_filter([$manufacturer, $product])));
         }
 
-        if ($agent_data['dmi']['system-serial-number']) {
-            DeviceCache::getPrimary()->serial = $agent_data['dmi']['system-serial-number'];
+        $serial = $getDmiValue('system-serial-number', 'baseboard-serial-number', 'System Serial Number');
+        if ($serial) {
+            DeviceCache::getPrimary()->serial = $serial;
         }
         DeviceCache::getPrimary()->save();
+        unset($dmi, $getDmiValue, $manufacturer, $product, $serial);
     }
 
     // store results in array cache

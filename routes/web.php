@@ -68,7 +68,7 @@ use Illuminate\Support\Facades\Route;
 AuthFacade::routes(['register' => false, 'reset' => false, 'verify' => false]);
 
 // Socialite
-Route::prefix('auth')->name('socialite.')->group(function () {
+Route::prefix('auth')->name('socialite.')->group(function (): void {
     Route::post('{provider}/redirect', [SocialiteController::class, 'redirect'])->name('redirect');
     Route::match(['get', 'post'], '{provider}/callback', [SocialiteController::class, 'callback'])->name('callback');
     Route::get('{provider}/metadata', [SocialiteController::class, 'metadata'])->name('metadata');
@@ -79,7 +79,7 @@ Route::get('graph/{path?}', GraphController::class)
     ->middleware(['web', AuthenticateGraph::class])->name('graph');
 
 // WebUI
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth'])->group(function (): void {
     // pages
     Route::post('alert/{alert}/ack', [AlertController::class, 'ack'])->name('alert.ack');
     Route::resource('device-groups', DeviceGroupController::class);
@@ -88,7 +88,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('outages', [OutagesController::class, 'index'])->name('outages');
     Route::resource('port', PortController::class)->only('update');
     Route::get('vlans', [App\Http\Controllers\VlansController::class, 'index'])->name('vlans.index');
-    Route::prefix('poller')->group(function () {
+    Route::prefix('poller')->group(function (): void {
         Route::get('', [PollerController::class, 'pollerTab'])->name('poller.index');
         Route::get('log', [PollerController::class, 'logTab'])->name('poller.log');
         Route::get('groups', [PollerController::class, 'groupsTab'])->name('poller.groups');
@@ -96,7 +96,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('performance', [PollerController::class, 'performanceTab'])->name('poller.performance');
         Route::resource('{id}/settings', PollerSettingsController::class, ['as' => 'poller'])->only(['update', 'destroy']);
     });
-    Route::prefix('services')->name('services.')->group(function () {
+    Route::prefix('services')->name('services.')->group(function (): void {
         Route::resource('templates', ServiceTemplateController::class);
         Route::post('templates/applyAll', [ServiceTemplateController::class, 'applyAll'])->name('templates.applyAll');
         Route::post('templates/apply/{template}', [ServiceTemplateController::class, 'apply'])->name('templates.apply');
@@ -115,19 +115,19 @@ Route::middleware(['auth'])->group(function () {
     Route::get('nac', [NacController::class, 'index']);
 
     // Device Tabs
-    Route::middleware('can:admin')->group(function () {
+    Route::middleware('can:admin')->group(function (): void {
         Route::get('/device/{device}/edit', [Device\EditDeviceController::class, 'index'])->name('device.edit');
         Route::put('/device/{device}/edit', [Device\EditDeviceController::class, 'update'])->name('device.edit.update');
         Route::post('/device/{device}/rediscover', [DeviceController::class, 'rediscover'])->name('device.rediscover');
     });
 
-    Route::prefix('device/{device}')->name('device.')->group(function () {
+    Route::prefix('device/{device}')->name('device.')->group(function (): void {
         Route::redirect('logs', 'logs/eventlog')->name('logs');
         Route::get('logs/eventlog', Device\Tabs\EventlogController::class)->name('eventlog');
         Route::get('logs/graylog', Device\Tabs\GraylogController::class)->name('graylog');
         Route::get('logs/outages', Device\Tabs\OutagesController::class)->name('outages');
         Route::get('logs/syslog', Device\Tabs\SyslogController::class)->name('syslog');
-        Route::get('popup', \App\Http\Controllers\DevicePopupController::class)->name('popup');
+        Route::get('popup', App\Http\Controllers\DevicePopupController::class)->name('popup');
         Route::put('notes', [Device\Tabs\NotesController::class, 'update'])->name('notes.update');
         Route::put('module/{module}', [Device\Tabs\ModuleController::class, 'update'])->name('module.update');
         Route::delete('module/{module}', [Device\Tabs\ModuleController::class, 'delete'])->name('module.delete');
@@ -141,7 +141,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('fullscreenmap', [Maps\FullscreenMapController::class, 'fullscreenMap']);
     Route::get('availability-map', [Maps\AvailabilityMapController::class, 'availabilityMap']);
     Route::get('map/{vars?}', [Maps\NetMapController::class, 'netMap']);
-    Route::prefix('maps')->group(function () {
+    Route::prefix('maps')->group(function (): void {
         Route::resource('custom', CustomMapController::class, ['as' => 'maps'])
             ->parameters(['custom' => 'map'])->except('create');
         Route::post('custom/{map}/clone', [CustomMapController::class, 'clone'])->name('maps.custom.clone');
@@ -175,7 +175,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('tool/oui-lookup', OuiLookupController::class)->name('tool.oui-lookup');
 
     // Push notifications
-    Route::prefix('push')->group(function () {
+    Route::prefix('push')->group(function (): void {
         Route::get('token', [PushNotificationController::class, 'token'])->name('push.token');
         Route::get('key', [PushNotificationController::class, 'key'])->name('push.key');
         Route::post('register', [PushNotificationController::class, 'register'])->name('push.register');
@@ -183,7 +183,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // admin pages
-    Route::middleware('can:admin')->group(function () {
+    Route::middleware('can:admin')->group(function (): void {
         Route::get('settings/{tab?}/{section?}', [SettingsController::class, 'index'])->name('settings');
         Route::put('settings/{name}', [SettingsController::class, 'update'])->name('settings.update');
         Route::delete('settings/{name}', [SettingsController::class, 'destroy'])->name('settings.destroy');
@@ -193,6 +193,7 @@ Route::middleware(['auth'])->group(function () {
         Route::put('alert-rule/{alert_rule}/toggle', [AlertRuleController::class, 'toggle'])->name('alert-rule.toggle');
         Route::get('alert-rule-from-template/{template_id}', [AlertRuleTemplateController::class, 'template'])->name('alert-rule-template');
         Route::get('alert-rule-from-rule/{alert_rule}', [AlertRuleTemplateController::class, 'rule'])->name('alert-rule-template.rule');
+        Route::get('alertlog/{alertLog}/details', Ajax\AlertDetailsController::class)->name('alertlog.details');
 
         Route::get('plugin/settings', App\Http\Controllers\PluginAdminController::class)->name('plugin.admin');
         Route::get('plugin/settings/{plugin:plugin_name}', PluginSettingsController::class)->name('plugin.settings');
@@ -200,7 +201,7 @@ Route::middleware(['auth'])->group(function () {
 
         Route::resource('port-groups', PortGroupController::class);
         Route::get('validate', [ValidateController::class, 'index'])->name('validate');
-        Route::get('validate/results', [ValidateController::class, 'runValidation'])->name('validate.results');
+        Route::get('validate/results/{group?}', [ValidateController::class, 'runValidation'])->name('validate.results');
         Route::post('validate/fix', [ValidateController::class, 'runFixer'])->name('validate.fix');
     });
 
@@ -220,7 +221,7 @@ Route::middleware(['auth'])->group(function () {
     Route::permanentRedirect('poll-log', 'poller/log');
 
     // Two Factor Auth
-    Route::prefix('2fa')->group(function () {
+    Route::prefix('2fa')->group(function (): void {
         Route::get('', [Auth\TwoFactorController::class, 'showTwoFactorForm'])->name('2fa.form');
         Route::post('', [Auth\TwoFactorController::class, 'verifyTwoFactor'])->name('2fa.verify');
         Route::post('add', [Auth\TwoFactorController::class, 'create'])->name('2fa.add');
@@ -232,7 +233,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Ajax routes
-    Route::prefix('ajax')->group(function () {
+    Route::prefix('ajax')->group(function (): void {
         // page ajax controllers
         Route::resource('location', LocationController::class)->only('update', 'destroy');
         Route::resource('pollergroup', PollerGroupController::class)->only('destroy');
@@ -251,7 +252,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('settings/list', [SettingsController::class, 'listAll'])->name('settings.list');
 
         // js select2 data controllers
-        Route::prefix('select')->group(function () {
+        Route::prefix('select')->group(function (): void {
             Route::get('alert-transport', Select\AlertTransportController::class)->name('ajax.select.alert-transport');
             Route::get('alert-transport-group', Select\AlertTransportGroupController::class)->name('ajax.select.alert-transport-group');
             Route::get('alert-transports-groups', Select\AlertTransportsAndGroupsController::class)->name('ajax.select.alert-transports-groups');
@@ -273,16 +274,22 @@ Route::middleware(['auth'])->group(function () {
             Route::get('syslog', Select\SyslogController::class)->name('ajax.select.syslog');
             Route::get('location', Select\LocationController::class)->name('ajax.select.location');
             Route::get('munin', Select\MuninPluginController::class)->name('ajax.select.munin');
+            Route::get('os', Select\OsController::class)->name('ajax.select.os');
             Route::get('role', Select\RoleController::class)->name('ajax.select.role');
             Route::get('service', Select\ServiceController::class)->name('ajax.select.service');
+            Route::get('customoid', Select\CustomoidController::class)->name('ajax.select.customoid');
             Route::get('template', Select\ServiceTemplateController::class)->name('ajax.select.template');
             Route::get('poller-group', Select\PollerGroupController::class)->name('ajax.select.poller-group');
             Route::get('port', Select\PortController::class)->name('ajax.select.port');
             Route::get('port-field', Select\PortFieldController::class)->name('ajax.select.port-field');
+            Route::get('sensor', Select\SensorController::class)->name('ajax.select.sensor');
         });
 
         // jquery bootgrid data controllers
-        Route::prefix('table')->group(function () {
+        Route::prefix('table')->group(function (): void {
+            Route::any('address-search/ipv4', Table\Ipv4AddressSearchController::class)->name('search.ipv4');
+            Route::any('address-search/ipv6', Table\Ipv6AddressSearchController::class)->name('search.ipv6');
+            Route::any('address-search/mac', Table\MacSearchController::class)->name('search.mac');
             Route::post('alert-schedule', Table\AlertScheduleController::class);
             Route::post('customers', Table\CustomersController::class);
             Route::post('diskio', Table\DiskioController::class)->name('table.diskio');
@@ -294,7 +301,7 @@ Route::middleware(['auth'])->group(function () {
             Route::post('graylog', Table\GraylogController::class)->name('table.graylog');
             Route::post('inventory', Table\InventoryController::class)->name('table.inventory');
             Route::get('inventory/export', [Table\InventoryController::class, 'export']);
-            Route::post('location', Table\LocationController::class);
+            Route::post('location', Table\LocationController::class)->name('table.location');
             Route::post('mempools', Table\MempoolsController::class)->name('table.mempools');
             Route::get('mempools/export', [Table\MempoolsController::class, 'export']);
             Route::post('outages', Table\OutagesController::class)->name('table.outages');
@@ -321,7 +328,7 @@ Route::middleware(['auth'])->group(function () {
         });
 
         // dashboard widgets
-        Route::prefix('dash')->group(function () {
+        Route::prefix('dash')->group(function (): void {
             Route::post('alerts', Widgets\AlertsController::class);
             Route::post('alertlog', Widgets\AlertlogController::class);
             Route::post('alertlog-stats', Widgets\AlertlogStatsController::class);
@@ -352,12 +359,12 @@ Route::middleware(['auth'])->group(function () {
 });
 
 // routes that don't need authentication
-Route::prefix('ajax')->group(function () {
+Route::prefix('ajax')->group(function (): void {
     Route::post('set_timezone', [Ajax\TimezoneController::class, 'set']);
 });
 
 // installation routes
-Route::prefix('install')->group(function () {
+Route::prefix('install')->group(function (): void {
     Route::get('/', [Install\InstallationController::class, 'redirectToFirst'])->name('install');
     Route::get('/checks', [Install\ChecksController::class, 'index'])->name('install.checks');
     Route::get('/database', [Install\DatabaseController::class, 'index'])->name('install.database');
