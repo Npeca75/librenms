@@ -659,7 +659,7 @@
                                 <span class="tw:font-bold tw:uppercase" x-text="group.label"></span>
                                 {{-- a button, so keyboard navigation over the result links skips it --}}
                                 <button type="button" x-show="group.url" @click="navigate(group.url)"
-                                        class="tw:text-blue-600 tw:dark:text-blue-400 tw:hover:underline">{{ __('search.view_all') }} â€º</button>
+                                        class="tw:text-blue-600 tw:dark:text-blue-400 tw:hover:underline">{{ __('search.view_all') }} âº</button>
                             </div>
                             <template x-for="(item, index) in group.results" :key="index">
                                 <a :href="item.url" x-ref="item" @mouseenter="activeIndex = flat.findIndex(i => i === item)"

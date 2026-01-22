@@ -10,6 +10,7 @@
 !/.github/linters/.yamllint.yml
 !/.mention-bot
 !/.env.example
+!/.docker
 
 # Others #
 ##########
@@ -19,8 +20,8 @@ __pycache__
 Thumbs.db
 config.php
 html/css/custom/*
-html/images/custom/*
 html/images/custommap/*
+html/images/custom/*
 includes/custom/*
 junk
 nbproject

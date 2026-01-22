@@ -1,0 +1,2 @@
+<?php
+$os->discoverTransceiverSensors(['dbm']);
