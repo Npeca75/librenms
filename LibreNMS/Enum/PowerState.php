@@ -31,6 +31,7 @@ abstract class PowerState
         'powered off' => self::OFF,
         'poweredoff' => self::OFF,
         'shut off' => self::OFF,
+        'stopped' => self::OFF,
 
         'powered on' => self::ON,
         'poweredon' => self::ON,
