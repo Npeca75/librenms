@@ -11,3 +11,14 @@ discovery:
             - .1.3.6.1.4.1.4998.2.1
             - .1.3.6.1.4.1.4998.2.2
             - .1.3.6.1.4.1.4115.1.9.1
+good_if:
+    - 'cable-mac 1 Router Virtual Interface'
+    - 'gigabitEthernet 17/0 Router Virtual Interface'
+    - 'gigabitEthernet 17/1 Router Virtual Interface'
+    - 'gigabitEthernet 17/2 Router Virtual Interface'
+    - 'gigabitEthernet 17/3 Router Virtual Interface'
+    - 'gigabitEthernet 17/4 Router Virtual Interface'
+    - 'gigabitEthernet 17/5 Router Virtual Interface'
+    - 'Link Aggregation Group 1 Router Virtual Interface'
+    - 'loopback 1 Router Virtual Interface'
+    - 'loopback 2 Router Virtual Interface'
