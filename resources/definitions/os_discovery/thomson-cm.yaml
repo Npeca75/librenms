@@ -3,6 +3,11 @@ modules:
     os:
         sysDescr_regex: '/Thomson DOCSIS Cable Modem .* SW_REV: (?<version>.*); MODEL: (?<hardware>.*)>>/'
     sensors:
+        additional_oids:
+            data:
+                -
+                    oid:
+                        - ifDescr
         tv_signal:
             data:
                 -
@@ -10,15 +15,18 @@ modules:
                     value: docsIfDownChannelPower
                     divisor: 10
                     num_oid: '.1.3.6.1.2.1.10.127.1.1.1.1.6.{{ $index }}'
-                    descr: RX Power
-                    index: 1
+                    descr: '{{ $ifDescr }}'
+                    index: '{{ $index }}'
+                    group: RX Power
+
                 -
                     oid: docsIfCmStatusTable
                     value: docsIfCmStatusTxPower
                     divisor: 10
                     num_oid: '.1.3.6.1.2.1.10.127.1.2.2.1.3.{{ $index }}'
-                    descr: TX Power
-                    index: 2
+                    descr: '{{ $ifDescr }}'
+                    index: '{{ $index }}'
+                    group: TX Power
         snr:
             data:
                 -
@@ -26,5 +34,14 @@ modules:
                     value: docsIfSigQSignalNoise
                     divisor: 10
                     num_oid: '.1.3.6.1.2.1.10.127.1.1.4.1.5.{{ $index }}'
-                    descr: SNR
-                    index: 1
+                    descr: '{{ $ifDescr }}'
+                    index: '{{ $index }}'
+                    group: SNR
+        count:
+            data:
+                -
+                    oid: docsIfCmStatusTable
+                    value: docsIfCmStatusRangingAborteds
+                    num_oid: '.1.3.6.1.2.1.10.127.1.2.2.1.14.{{ $index }}'
+                    descr: 'Aborted'
+                    index: '{{ $index }}'
