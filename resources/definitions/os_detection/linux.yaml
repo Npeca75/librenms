@@ -25,7 +25,11 @@ discovery:
             - '/^USG/'
     -
         sysDescr_regex: '/^Linux/'
+
 ignore_mount_regexp:
     - '#^/run($|/)#'
     - '#^/dev/shm$#'
     - '#^/var/snap/#'
+oids:
+    no_bulk:
+        - NET-SNMP-EXTEND-MIB::nsExtendStatus

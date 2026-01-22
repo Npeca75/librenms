@@ -12,5 +12,7 @@ discovery:
             - .1.3.6.1.4.1.232.9.4.11
             - .1.3.6.1.4.1.232.9.4.12
 mib_dir: hp
+bad_if:
+    - veth
 ignore_mount_regexp:
     - '#^[^/]+ on /#' # Ignore linux synthetic mounts via CPQHOST-MIB
