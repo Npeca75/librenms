@@ -236,6 +236,8 @@ modules:
                             op: '!='
                             value: 2
         count:
+            options:
+                skip_value_lt: 1
             data:
                 -
                     oid: MIKROTIK-MIB::mtxrDHCPLeaseCount
@@ -244,19 +246,19 @@ modules:
                     index: mtxrDHCPLeaseCount.{{ $index }}
                 -
                     oid: MIKROTIK-MIB::mtxrCtTotalEntries
-                    num_oid: .1.3.6.1.4.1.14988.1.1.22.1.1.{{ $index }}
+                    num_oid: .1.3.6.1.4.1.14988.1.1.22.1.{{ $index }}
                     descr: 'Total number of connections'
                     index: mtxrCtTotalEntries.{{ $index }}
                     group: Firewall
                 -
                     oid: MIKROTIK-MIB::mtxrCtIP4Entries
-                    num_oid: .1.3.6.1.4.1.14988.1.1.22.1.2.{{ $index }}
+                    num_oid: .1.3.6.1.4.1.14988.1.1.22.2.{{ $index }}
                     descr: 'Total number of ipv4 connections'
                     index: mtxrCtIP4Entries.{{ $index }}
                     group: Firewall
                 -
                     oid: MIKROTIK-MIB::mtxrCtIP6Entries
-                    num_oid: .1.3.6.1.4.1.14988.1.1.22.1.3.{{ $index }}
+                    num_oid: .1.3.6.1.4.1.14988.1.1.22.3.{{ $index }}
                     descr: 'Total number of ipv6 connections'
                     index: mtxrCtIP6Entries.{{ $index }}
                     group: Firewall

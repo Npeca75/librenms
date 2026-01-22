@@ -38,10 +38,10 @@ $rrd_def = RrdDefinition::make()
     ->addDataset('pids', 'GAUGE', 0)
     ->addDataset('mem_perc', 'GAUGE', 0, 100)
     ->addDataset('mem_used', 'GAUGE', 0)
-    ->addDataset('mem_limit', 'GAUGE', 0)
-    ->addDataset('uptime', 'GAUGE', 0)
-    ->addDataset('size_rw', 'GAUGE', 0)
-    ->addDataset('size_root_fs', 'GAUGE', 0);
+    ->addDataset('net_tx', 'GAUGE', 0)
+    ->addDataset('net_rx', 'GAUGE', 0)
+    ->addDataset('io_write', 'GAUGE', 0)
+    ->addDataset('io_read', 'GAUGE', 0);
 
 $totals = [
     'created' => 0,
@@ -67,10 +67,10 @@ foreach ($docker_data as $data) {
         'pids' => $data['pids'],
         'mem_perc' => (float) $data['memory']['perc'],
         'mem_used' => (int) Number::toBytes($data['memory']['used']),
-        'mem_limit' => (int) Number::toBytes($data['memory']['limit']),
-        'uptime' => $data['state']['uptime'] ?? null,
-        'size_rw' => $data['size']['size_rw'] ?? null,
-        'size_root_fs' => $data['size']['size_root_fs'] ?? null,
+        'net_tx' => (int) Number::toBytes($data['net']['tx']),
+        'net_rx' => (int) Number::toBytes($data['net']['rx']),
+        'io_write' => (int) Number::toBytes($data['io']['w']),
+        'io_read' => (int) Number::toBytes($data['io']['r']),
     ];
 
     $rrd_name = ['app', $name, $app->app_id, $container];
