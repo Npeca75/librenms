@@ -9,6 +9,13 @@ $link_array = [
     'tab' => 'routing',
 ];
 
+//##
+$portIds = \App\Models\Port::where('device_id', $device['device_id'])->get('port_id');
+$cnt4 = \App\Models\Ipv4Address::whereIn('port_id', $portIds)->count();
+$cnt6 = \App\Models\Ipv6Address::whereIn('port_id', $portIds)->count();
+$routing_tabs['ipadd'] = $cnt4 + $cnt6;
+$type_text['ipadd'] = 'IP Addr';
+
 // $type_text['overview'] = "Overview";
 $type_text['ipsec_tunnels'] = 'IPSEC Tunnels';
 
@@ -36,6 +43,7 @@ $pagetitle[] = 'Routing';
 echo "<span style='font-weight: bold;'>Routing</span> &#187; ";
 
 $sep = '';
+ksort($routing_tabs);
 foreach ($routing_tabs as $type => $type_count) {
     if (empty($vars['proto'])) {
         $vars['proto'] = $type;
