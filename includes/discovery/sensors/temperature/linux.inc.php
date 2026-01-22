@@ -60,3 +60,5 @@ if (preg_match('/(Linux).+(ntc)/', (string) $device['sysDescr'])) {
 }
 
 include base_path('includes/discovery/sensors/temperature/supermicro.inc.php');
+
+$os->discoverTransceiverSensors(['temperature']);

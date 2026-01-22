@@ -101,3 +101,5 @@ if (preg_match('/(Linux).+(ntc)/', (string) $device['sysDescr'])) {
         discover_sensor(null, SensorType::Voltage, $device, $oid . $index, $index, $sensor_type, $descr, '1', '1', $lowlimit, $lowwarnlimit, $warnlimit, $limit, $value);
     }
 }
+
+$os->discoverTransceiverSensors(['voltage']);
