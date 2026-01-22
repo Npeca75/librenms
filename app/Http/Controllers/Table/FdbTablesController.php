@@ -161,7 +161,7 @@ class FdbTablesController extends TableController
             'device' => Blade::render('<x-device-link :device="$device"/>', ['device' => $model->device]),
             'mac_address' => $mac->readable(),
             'mac_oui' => $mac->vendor(),
-            'ipv4_address' => $ips->implode(', '),
+            'ipv4_address' => implode(', ', array_unique($ips->toArray())),
             'interface' => '',
             'vlan' => $model->vlan ? $model->vlan->vlan_vlan : '',
             'description' => '',
