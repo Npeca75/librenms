@@ -1232,5 +1232,4 @@ class Cisco extends OS implements
 
         return $fdbt->filter();
     }
-
 }
