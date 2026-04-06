@@ -10830,8 +10830,6 @@
             ]
         }
     },
-<<<<<<< HEAD
-=======
     "processors": {
         "discovery": {
             "processors": [
@@ -10897,7 +10895,7 @@
                 {
                     "context_name": "",
                     "inetCidrRouteIfIndex": 90,
-                    "inetCidrRouteType": 4,
+                    "inetCidrRouteType": 2,
                     "inetCidrRouteProto": 3,
                     "inetCidrRouteNextHopAS": 0,
                     "inetCidrRouteMetric1": 1,
@@ -10906,6 +10904,34 @@
                     "inetCidrRouteNextHopType": "ipv6",
                     "inetCidrRouteNextHop": "fdfd:0000:0002:0255:0000:0000:0000:0001",
                     "inetCidrRoutePolicy": "zeroDotZero",
+                    "inetCidrRoutePfxLen": 0
+                },
+                {
+                    "context_name": "",
+                    "inetCidrRouteIfIndex": 90,
+                    "inetCidrRouteType": 2,
+                    "inetCidrRouteProto": 3,
+                    "inetCidrRouteNextHopAS": 0,
+                    "inetCidrRouteMetric1": 1,
+                    "inetCidrRouteDestType": "ipv6",
+                    "inetCidrRouteDest": "1000:0000:0000:0000:0000:0000:0000:0000",
+                    "inetCidrRouteNextHopType": "ipv6",
+                    "inetCidrRouteNextHop": "fdfd:0000:0002:0255:0000:0000:0000:0001",
+                    "inetCidrRoutePolicy": "0",
+                    "inetCidrRoutePfxLen": 0
+                },
+                {
+                    "context_name": "",
+                    "inetCidrRouteIfIndex": 90,
+                    "inetCidrRouteType": 3,
+                    "inetCidrRouteProto": 2,
+                    "inetCidrRouteNextHopAS": 0,
+                    "inetCidrRouteMetric1": 1,
+                    "inetCidrRouteDestType": "ipv6",
+                    "inetCidrRouteDest": "10fd:fd00:0000:0202:5500:0000:0000:0000",
+                    "inetCidrRouteNextHopType": "ipv6",
+                    "inetCidrRouteNextHop": "0000:0000:0000:0000:0000:0000:0000:0000",
+                    "inetCidrRoutePolicy": "0",
                     "inetCidrRoutePfxLen": 0
                 },
                 {
@@ -11003,7 +11029,7 @@
                     "group": "transceiver",
                     "sensor_divisor": 1000,
                     "sensor_multiplier": 1,
-                    "sensor_current": -2.302,
+                    "sensor_current": -2.235,
                     "sensor_limit": -0.2,
                     "sensor_limit_warn": -0.251,
                     "sensor_limit_low": -10,
@@ -11028,7 +11054,7 @@
                     "group": "transceiver",
                     "sensor_divisor": 1000,
                     "sensor_multiplier": 1,
-                    "sensor_current": -2.475,
+                    "sensor_current": -2.443,
                     "sensor_limit": -1.259,
                     "sensor_limit_warn": -1.585,
                     "sensor_limit_low": -19.953,
@@ -11178,10 +11204,10 @@
                     "group": null,
                     "sensor_divisor": 1,
                     "sensor_multiplier": 1,
-                    "sensor_current": 37,
-                    "sensor_limit": 57,
+                    "sensor_current": 38,
+                    "sensor_limit": 58,
                     "sensor_limit_warn": null,
-                    "sensor_limit_low": 27,
+                    "sensor_limit_low": 28,
                     "sensor_limit_low_warn": null,
                     "sensor_alert": 1,
                     "sensor_custom": "No",
@@ -11332,7 +11358,6 @@
         },
         "poller": "matches discovery"
     },
->>>>>>> 82f5054e89741e2f027bac5ec1b048c5e25ba334
     "entity-physical": {
         "discovery": {
             "entPhysical": [
@@ -12060,64 +12085,6 @@
         },
         "poller": "matches discovery"
     },
-    "processors": {
-        "discovery": {
-            "processors": [
-                {
-                    "entPhysicalIndex": 0,
-                    "hrDeviceIndex": 0,
-                    "processor_oid": ".1.3.6.1.4.1.35265.1.139.6.1.1.2.2.0",
-                    "processor_index": "0",
-                    "processor_type": "eltex-mes24xx",
-                    "processor_usage": 6,
-                    "processor_descr": "Processor",
-                    "processor_precision": 1,
-                    "processor_perc_warn": 75
-                }
-            ]
-        },
-        "poller": "matches discovery"
-    },
-    "mempools": {
-        "discovery": {
-            "mempools": [
-                {
-                    "mempool_index": "0",
-                    "entPhysicalIndex": null,
-                    "mempool_type": "eltex-mes24xx",
-                    "mempool_class": "system",
-                    "mempool_precision": 1,
-                    "mempool_descr": "System Memory",
-                    "mempool_perc": 43,
-                    "mempool_perc_oid": null,
-                    "mempool_used": 43,
-                    "mempool_used_oid": ".1.3.6.1.4.1.2076.81.1.73.0",
-                    "mempool_free": 57,
-                    "mempool_free_oid": null,
-                    "mempool_total": 100,
-                    "mempool_total_oid": null,
-                    "mempool_largestfree": null,
-                    "mempool_lowestfree": null,
-                    "mempool_deleted": 0,
-                    "mempool_perc_warn": 90
-                }
-            ]
-        },
-        "poller": "matches discovery"
-    },
-    "ipv4-addresses": {
-        "discovery": {
-            "ipv4_addresses": [
-                {
-                    "ipv4_address": "169.254.2.39",
-                    "ipv4_prefixlen": 24,
-                    "context_name": "",
-                    "ipv4_network": "169.254.2.0/24",
-                    "ifIndex": 90
-                }
-            ]
-        }
-    },
     "ipv6-addresses": {
         "discovery": {
             "ipv6_addresses": [
@@ -12129,96 +12096,6 @@
                     "context_name": null,
                     "ipv6_network": "fdfd:0:2:255::/64",
                     "ifIndex": 90
-                }
-            ]
-        }
-    },
-    "route": {
-        "discovery": {
-            "route": [
-                {
-                    "context_name": "",
-                    "inetCidrRouteIfIndex": 90,
-                    "inetCidrRouteType": 4,
-                    "inetCidrRouteProto": 3,
-                    "inetCidrRouteNextHopAS": 0,
-                    "inetCidrRouteMetric1": 1,
-                    "inetCidrRouteDestType": "ipv4",
-                    "inetCidrRouteDest": "0.0.0.0",
-                    "inetCidrRouteNextHopType": "ipv4",
-                    "inetCidrRouteNextHop": "169.254.2.1",
-                    "inetCidrRoutePolicy": "zeroDotZero",
-                    "inetCidrRoutePfxLen": 0
-                },
-                {
-                    "context_name": "",
-                    "inetCidrRouteIfIndex": 90,
-                    "inetCidrRouteType": 2,
-                    "inetCidrRouteProto": 3,
-                    "inetCidrRouteNextHopAS": 0,
-                    "inetCidrRouteMetric1": 1,
-                    "inetCidrRouteDestType": "ipv6",
-                    "inetCidrRouteDest": "0000:0000:0000:0000:0000:0000:0000:0000",
-                    "inetCidrRouteNextHopType": "ipv6",
-                    "inetCidrRouteNextHop": "fdfd:0000:0002:0255:0000:0000:0000:0001",
-                    "inetCidrRoutePolicy": "zeroDotZero",
-                    "inetCidrRoutePfxLen": 0
-                },
-                {
-                    "context_name": "",
-                    "inetCidrRouteIfIndex": 90,
-                    "inetCidrRouteType": 2,
-                    "inetCidrRouteProto": 3,
-                    "inetCidrRouteNextHopAS": 0,
-                    "inetCidrRouteMetric1": 1,
-                    "inetCidrRouteDestType": "ipv6",
-                    "inetCidrRouteDest": "1000:0000:0000:0000:0000:0000:0000:0000",
-                    "inetCidrRouteNextHopType": "ipv6",
-                    "inetCidrRouteNextHop": "fdfd:0000:0002:0255:0000:0000:0000:0001",
-                    "inetCidrRoutePolicy": "0",
-                    "inetCidrRoutePfxLen": 0
-                },
-                {
-                    "context_name": "",
-                    "inetCidrRouteIfIndex": 90,
-                    "inetCidrRouteType": 3,
-                    "inetCidrRouteProto": 2,
-                    "inetCidrRouteNextHopAS": 0,
-                    "inetCidrRouteMetric1": 1,
-                    "inetCidrRouteDestType": "ipv6",
-                    "inetCidrRouteDest": "10fd:fd00:0000:0202:5500:0000:0000:0000",
-                    "inetCidrRouteNextHopType": "ipv6",
-                    "inetCidrRouteNextHop": "0000:0000:0000:0000:0000:0000:0000:0000",
-                    "inetCidrRoutePolicy": "0",
-                    "inetCidrRoutePfxLen": 0
-                },
-                {
-                    "context_name": "",
-                    "inetCidrRouteIfIndex": 90,
-                    "inetCidrRouteType": 3,
-                    "inetCidrRouteProto": 2,
-                    "inetCidrRouteNextHopAS": 0,
-                    "inetCidrRouteMetric1": 0,
-                    "inetCidrRouteDestType": "ipv4",
-                    "inetCidrRouteDest": "169.254.2.0",
-                    "inetCidrRouteNextHopType": "ipv4",
-                    "inetCidrRouteNextHop": "0.0.0.0",
-                    "inetCidrRoutePolicy": "zeroDotZero",
-                    "inetCidrRoutePfxLen": 24
-                },
-                {
-                    "context_name": "",
-                    "inetCidrRouteIfIndex": 90,
-                    "inetCidrRouteType": 3,
-                    "inetCidrRouteProto": 2,
-                    "inetCidrRouteNextHopAS": 0,
-                    "inetCidrRouteMetric1": 1,
-                    "inetCidrRouteDestType": "ipv6",
-                    "inetCidrRouteDest": "fdfd:0000:0002:0255:0000:0000:0000:0000",
-                    "inetCidrRouteNextHopType": "ipv6",
-                    "inetCidrRouteNextHop": "0000:0000:0000:0000:0000:0000:0000:0000",
-                    "inetCidrRoutePolicy": "zeroDotZero",
-                    "inetCidrRoutePfxLen": 64
                 }
             ]
         }
@@ -12304,405 +12181,6 @@
                 }
             ]
         }
-    },
-    "sensors": {
-        "discovery": {
-            "sensors": [
-                {
-                    "sensor_deleted": 0,
-                    "sensor_class": "charge",
-                    "poller_type": "snmp",
-                    "sensor_oid": ".1.3.6.1.4.1.35265.1.139.12.1.3.1.1.3.0",
-                    "sensor_index": "eltMesIssBatteryLevel.0",
-                    "sensor_type": "eltex-mes24xx",
-                    "sensor_descr": "Backup battery level",
-                    "group": null,
-                    "sensor_divisor": 1,
-                    "sensor_multiplier": 1,
-                    "sensor_current": 100,
-                    "sensor_limit": null,
-                    "sensor_limit_warn": null,
-                    "sensor_limit_low": null,
-                    "sensor_limit_low_warn": null,
-                    "sensor_alert": 1,
-                    "sensor_custom": "No",
-                    "entPhysicalIndex": null,
-                    "entPhysicalIndex_measured": null,
-                    "sensor_prev": null,
-                    "user_func": null,
-                    "rrd_type": "GAUGE",
-                    "state_name": null
-                },
-                {
-                    "sensor_deleted": 0,
-                    "sensor_class": "current",
-                    "poller_type": "snmp",
-                    "sensor_oid": ".1.3.6.1.4.1.35265.52.1.1.3.2.1.8.28.3.1",
-                    "sensor_index": "SfpTxBias28",
-                    "sensor_type": "ELTEX-PHY-MIB",
-                    "sensor_descr": "SfpTxBias-te 0/4",
-                    "group": "transceiver",
-                    "sensor_divisor": 1000,
-                    "sensor_multiplier": 1,
-                    "sensor_current": 0.021,
-                    "sensor_limit": 0.085,
-                    "sensor_limit_warn": 0.08,
-                    "sensor_limit_low": 0.01,
-                    "sensor_limit_low_warn": 0.012,
-                    "sensor_alert": 1,
-                    "sensor_custom": "No",
-                    "entPhysicalIndex": "28",
-                    "entPhysicalIndex_measured": "port",
-                    "sensor_prev": null,
-                    "user_func": null,
-                    "rrd_type": "GAUGE",
-                    "state_name": null
-                },
-                {
-                    "sensor_deleted": 0,
-                    "sensor_class": "dbm",
-                    "poller_type": "snmp",
-                    "sensor_oid": ".1.3.6.1.4.1.35265.52.1.1.3.2.1.8.28.5.1",
-                    "sensor_index": "SfpRxDbm28",
-                    "sensor_type": "ELTEX-PHY-MIB",
-                    "sensor_descr": "SfpRxDbm-te 0/4",
-                    "group": "transceiver",
-                    "sensor_divisor": 1000,
-                    "sensor_multiplier": 1,
-                    "sensor_current": -2.235,
-                    "sensor_limit": -0.2,
-                    "sensor_limit_warn": -0.251,
-                    "sensor_limit_low": -10,
-                    "sensor_limit_low_warn": -7.943,
-                    "sensor_alert": 1,
-                    "sensor_custom": "No",
-                    "entPhysicalIndex": "28",
-                    "entPhysicalIndex_measured": "port",
-                    "sensor_prev": null,
-                    "user_func": null,
-                    "rrd_type": "GAUGE",
-                    "state_name": null
-                },
-                {
-                    "sensor_deleted": 0,
-                    "sensor_class": "dbm",
-                    "poller_type": "snmp",
-                    "sensor_oid": ".1.3.6.1.4.1.35265.52.1.1.3.2.1.8.28.4.1",
-                    "sensor_index": "SfpTxDbm28",
-                    "sensor_type": "ELTEX-PHY-MIB",
-                    "sensor_descr": "SfpTxDbm-te 0/4",
-                    "group": "transceiver",
-                    "sensor_divisor": 1000,
-                    "sensor_multiplier": 1,
-                    "sensor_current": -2.443,
-                    "sensor_limit": -1.259,
-                    "sensor_limit_warn": -1.585,
-                    "sensor_limit_low": -19.953,
-                    "sensor_limit_low_warn": -15.849,
-                    "sensor_alert": 1,
-                    "sensor_custom": "No",
-                    "entPhysicalIndex": "28",
-                    "entPhysicalIndex_measured": "port",
-                    "sensor_prev": null,
-                    "user_func": null,
-                    "rrd_type": "GAUGE",
-                    "state_name": null
-                },
-                {
-                    "sensor_deleted": 0,
-                    "sensor_class": "state",
-                    "poller_type": "snmp",
-                    "sensor_oid": ".1.3.6.1.4.1.35265.52.1.1.3.2.1.8.25.6.1",
-                    "sensor_index": "SfpLoss25",
-                    "sensor_type": "ELTEX-PHY-MIB",
-                    "sensor_descr": "SfpLoss-te 0/1",
-                    "group": "transceiver",
-                    "sensor_divisor": 1,
-                    "sensor_multiplier": 1,
-                    "sensor_current": 0,
-                    "sensor_limit": 1,
-                    "sensor_limit_warn": null,
-                    "sensor_limit_low": null,
-                    "sensor_limit_low_warn": null,
-                    "sensor_alert": 1,
-                    "sensor_custom": "No",
-                    "entPhysicalIndex": "25",
-                    "entPhysicalIndex_measured": "port",
-                    "sensor_prev": null,
-                    "user_func": null,
-                    "rrd_type": "GAUGE",
-                    "state_name": null
-                },
-                {
-                    "sensor_deleted": 0,
-                    "sensor_class": "state",
-                    "poller_type": "snmp",
-                    "sensor_oid": ".1.3.6.1.4.1.35265.52.1.1.3.2.1.8.26.6.1",
-                    "sensor_index": "SfpLoss26",
-                    "sensor_type": "ELTEX-PHY-MIB",
-                    "sensor_descr": "SfpLoss-te 0/2",
-                    "group": "transceiver",
-                    "sensor_divisor": 1,
-                    "sensor_multiplier": 1,
-                    "sensor_current": 0,
-                    "sensor_limit": 1,
-                    "sensor_limit_warn": null,
-                    "sensor_limit_low": null,
-                    "sensor_limit_low_warn": null,
-                    "sensor_alert": 1,
-                    "sensor_custom": "No",
-                    "entPhysicalIndex": "26",
-                    "entPhysicalIndex_measured": "port",
-                    "sensor_prev": null,
-                    "user_func": null,
-                    "rrd_type": "GAUGE",
-                    "state_name": null
-                },
-                {
-                    "sensor_deleted": 0,
-                    "sensor_class": "state",
-                    "poller_type": "snmp",
-                    "sensor_oid": ".1.3.6.1.4.1.35265.52.1.1.3.2.1.8.27.6.1",
-                    "sensor_index": "SfpLoss27",
-                    "sensor_type": "ELTEX-PHY-MIB",
-                    "sensor_descr": "SfpLoss-te 0/3",
-                    "group": "transceiver",
-                    "sensor_divisor": 1,
-                    "sensor_multiplier": 1,
-                    "sensor_current": 0,
-                    "sensor_limit": 1,
-                    "sensor_limit_warn": null,
-                    "sensor_limit_low": null,
-                    "sensor_limit_low_warn": null,
-                    "sensor_alert": 1,
-                    "sensor_custom": "No",
-                    "entPhysicalIndex": "27",
-                    "entPhysicalIndex_measured": "port",
-                    "sensor_prev": null,
-                    "user_func": null,
-                    "rrd_type": "GAUGE",
-                    "state_name": null
-                },
-                {
-                    "sensor_deleted": 0,
-                    "sensor_class": "state",
-                    "poller_type": "snmp",
-                    "sensor_oid": ".1.3.6.1.4.1.35265.52.1.1.3.2.1.8.28.6.1",
-                    "sensor_index": "SfpLoss28",
-                    "sensor_type": "ELTEX-PHY-MIB",
-                    "sensor_descr": "SfpLoss-te 0/4",
-                    "group": "transceiver",
-                    "sensor_divisor": 1,
-                    "sensor_multiplier": 1,
-                    "sensor_current": 0,
-                    "sensor_limit": 1,
-                    "sensor_limit_warn": null,
-                    "sensor_limit_low": null,
-                    "sensor_limit_low_warn": null,
-                    "sensor_alert": 1,
-                    "sensor_custom": "No",
-                    "entPhysicalIndex": "28",
-                    "entPhysicalIndex_measured": "port",
-                    "sensor_prev": null,
-                    "user_func": null,
-                    "rrd_type": "GAUGE",
-                    "state_name": null
-                },
-                {
-                    "sensor_deleted": 0,
-                    "sensor_class": "state",
-                    "poller_type": "snmp",
-                    "sensor_oid": ".1.3.6.1.4.1.35265.1.139.12.1.3.1.1.2.0",
-                    "sensor_index": "eltMesIssBatteryStatus.0",
-                    "sensor_type": "eltMesIssBatteryStatusTable",
-                    "sensor_descr": "Backup battery status",
-                    "group": "Chassis PSU",
-                    "sensor_divisor": 1,
-                    "sensor_multiplier": 1,
-                    "sensor_current": 6,
-                    "sensor_limit": null,
-                    "sensor_limit_warn": null,
-                    "sensor_limit_low": null,
-                    "sensor_limit_low_warn": null,
-                    "sensor_alert": 1,
-                    "sensor_custom": "No",
-                    "entPhysicalIndex": null,
-                    "entPhysicalIndex_measured": null,
-                    "sensor_prev": null,
-                    "user_func": null,
-                    "rrd_type": "GAUGE",
-                    "state_name": "eltMesIssBatteryStatusTable"
-                },
-                {
-                    "sensor_deleted": 0,
-                    "sensor_class": "temperature",
-                    "poller_type": "snmp",
-                    "sensor_oid": ".1.3.6.1.4.1.2076.81.1.66.0",
-                    "sensor_index": "issSwitchCurrentTemperature.0",
-                    "sensor_type": "eltex-mes24xx",
-                    "sensor_descr": "Chassis",
-                    "group": null,
-                    "sensor_divisor": 1,
-                    "sensor_multiplier": 1,
-                    "sensor_current": 38,
-                    "sensor_limit": 58,
-                    "sensor_limit_warn": null,
-                    "sensor_limit_low": 28,
-                    "sensor_limit_low_warn": null,
-                    "sensor_alert": 1,
-                    "sensor_custom": "No",
-                    "entPhysicalIndex": null,
-                    "entPhysicalIndex_measured": null,
-                    "sensor_prev": null,
-                    "user_func": null,
-                    "rrd_type": "GAUGE",
-                    "state_name": null
-                },
-                {
-                    "sensor_deleted": 0,
-                    "sensor_class": "temperature",
-                    "poller_type": "snmp",
-                    "sensor_oid": ".1.3.6.1.4.1.35265.52.1.1.3.2.1.8.28.1.1",
-                    "sensor_index": "SfpTemp28",
-                    "sensor_type": "ELTEX-PHY-MIB",
-                    "sensor_descr": "SfpTemp-te 0/4",
-                    "group": "transceiver",
-                    "sensor_divisor": 1,
-                    "sensor_multiplier": 1,
-                    "sensor_current": 43,
-                    "sensor_limit": 85,
-                    "sensor_limit_warn": 80,
-                    "sensor_limit_low": -10,
-                    "sensor_limit_low_warn": -5,
-                    "sensor_alert": 1,
-                    "sensor_custom": "No",
-                    "entPhysicalIndex": "28",
-                    "entPhysicalIndex_measured": "port",
-                    "sensor_prev": null,
-                    "user_func": null,
-                    "rrd_type": "GAUGE",
-                    "state_name": null
-                },
-                {
-                    "sensor_deleted": 0,
-                    "sensor_class": "voltage",
-                    "poller_type": "snmp",
-                    "sensor_oid": ".1.3.6.1.4.1.2076.81.1.71.0",
-                    "sensor_index": "issSwitchCurrentPowerSupply.0",
-                    "sensor_type": "eltex-mes24xx",
-                    "sensor_descr": "Main PSU",
-                    "group": null,
-                    "sensor_divisor": 1,
-                    "sensor_multiplier": 1,
-                    "sensor_current": 230,
-                    "sensor_limit": 264.5,
-                    "sensor_limit_warn": null,
-                    "sensor_limit_low": 195.5,
-                    "sensor_limit_low_warn": null,
-                    "sensor_alert": 1,
-                    "sensor_custom": "No",
-                    "entPhysicalIndex": null,
-                    "entPhysicalIndex_measured": null,
-                    "sensor_prev": null,
-                    "user_func": null,
-                    "rrd_type": "GAUGE",
-                    "state_name": null
-                },
-                {
-                    "sensor_deleted": 0,
-                    "sensor_class": "voltage",
-                    "poller_type": "snmp",
-                    "sensor_oid": ".1.3.6.1.4.1.35265.52.1.1.3.2.1.8.28.2.1",
-                    "sensor_index": "SfpVolt28",
-                    "sensor_type": "ELTEX-PHY-MIB",
-                    "sensor_descr": "SfpVolt-te 0/4",
-                    "group": "transceiver",
-                    "sensor_divisor": 1,
-                    "sensor_multiplier": 1,
-                    "sensor_current": 3,
-                    "sensor_limit": 3.7,
-                    "sensor_limit_warn": 3.6,
-                    "sensor_limit_low": 2.9,
-                    "sensor_limit_low_warn": 3,
-                    "sensor_alert": 1,
-                    "sensor_custom": "No",
-                    "entPhysicalIndex": "28",
-                    "entPhysicalIndex_measured": "port",
-                    "sensor_prev": null,
-                    "user_func": null,
-                    "rrd_type": "GAUGE",
-                    "state_name": null
-                }
-            ],
-            "state_indexes": [
-                {
-                    "state_name": "eltMesIssBatteryStatusTable",
-                    "state_descr": "NotSupported",
-                    "state_draw_graph": 1,
-                    "state_value": 1,
-                    "state_generic_value": 3
-                },
-                {
-                    "state_name": "eltMesIssBatteryStatusTable",
-                    "state_descr": "Missing",
-                    "state_draw_graph": 1,
-                    "state_value": 2,
-                    "state_generic_value": 2
-                },
-                {
-                    "state_name": "eltMesIssBatteryStatusTable",
-                    "state_descr": "Charging",
-                    "state_draw_graph": 1,
-                    "state_value": 3,
-                    "state_generic_value": 1
-                },
-                {
-                    "state_name": "eltMesIssBatteryStatusTable",
-                    "state_descr": "Low",
-                    "state_draw_graph": 1,
-                    "state_value": 4,
-                    "state_generic_value": 2
-                },
-                {
-                    "state_name": "eltMesIssBatteryStatusTable",
-                    "state_descr": "Discharged",
-                    "state_draw_graph": 1,
-                    "state_value": 5,
-                    "state_generic_value": 2
-                },
-                {
-                    "state_name": "eltMesIssBatteryStatusTable",
-                    "state_descr": "Charged",
-                    "state_draw_graph": 1,
-                    "state_value": 6,
-                    "state_generic_value": 0
-                }
-            ]
-        },
-        "poller": "matches discovery"
-    },
-    "storage": {
-        "discovery": {
-            "storage": [
-                {
-                    "type": "eltex-mes24xx",
-                    "storage_index": "0",
-                    "storage_type": "Storage",
-                    "storage_descr": "Internal Flash",
-                    "storage_size": 100,
-                    "storage_size_oid": null,
-                    "storage_units": 1,
-                    "storage_used": 83,
-                    "storage_used_oid": null,
-                    "storage_free": 17,
-                    "storage_free_oid": null,
-                    "storage_perc": 83,
-                    "storage_perc_oid": ".1.3.6.1.4.1.2076.81.1.75.0",
-                    "storage_perc_warn": 60
-                }
-            ]
-        },
-        "poller": "matches discovery"
     },
     "discovery-protocols": {
         "discovery": {
@@ -13608,208 +13086,15 @@
         },
         "poller": "matches discovery"
     },
-    "fdb-table": {
+    "ipv4-addresses": {
         "discovery": {
-            "ports_fdb": [
+            "ipv4_addresses": [
                 {
-                    "mac_address": "78e7d1a23217",
-                    "ifIndex": 14,
-                    "vlan_vlan": 100
-                },
-                {
-                    "mac_address": "c018039be726",
-                    "ifIndex": 23,
-                    "vlan_vlan": 100
-                },
-                {
-                    "mac_address": "0e0002010140",
-                    "ifIndex": 23,
-                    "vlan_vlan": 255
-                },
-                {
-                    "mac_address": "48a98ac1ae9c",
-                    "ifIndex": 24,
-                    "vlan_vlan": 255
-                },
-                {
-                    "mac_address": "18d6c786ac0a",
-                    "ifIndex": 28,
-                    "vlan_vlan": 1
-                },
-                {
-                    "mac_address": "e828c126b9db",
-                    "ifIndex": 28,
-                    "vlan_vlan": 1
-                },
-                {
-                    "mac_address": "0264329fbc02",
-                    "ifIndex": 28,
-                    "vlan_vlan": 2
-                },
-                {
-                    "mac_address": "0264329fbc02",
-                    "ifIndex": 28,
-                    "vlan_vlan": 39
-                },
-                {
-                    "mac_address": "0264329fbc02",
-                    "ifIndex": 28,
-                    "vlan_vlan": 40
-                },
-                {
-                    "mac_address": "18c04dd43475",
-                    "ifIndex": 28,
-                    "vlan_vlan": 40
-                },
-                {
-                    "mac_address": "0264329fbc02",
-                    "ifIndex": 28,
-                    "vlan_vlan": 98
-                },
-                {
-                    "mac_address": "0264329fbc02",
-                    "ifIndex": 28,
-                    "vlan_vlan": 99
-                },
-                {
-                    "mac_address": "00206b0d4068",
-                    "ifIndex": 28,
-                    "vlan_vlan": 100
-                },
-                {
-                    "mac_address": "00206b4af325",
-                    "ifIndex": 28,
-                    "vlan_vlan": 100
-                },
-                {
-                    "mac_address": "00206b8435e6",
-                    "ifIndex": 28,
-                    "vlan_vlan": 100
-                },
-                {
-                    "mac_address": "0264329fbc02",
-                    "ifIndex": 28,
-                    "vlan_vlan": 100
-                },
-                {
-                    "mac_address": "14cb197e24d4",
-                    "ifIndex": 28,
-                    "vlan_vlan": 100
-                },
-                {
-                    "mac_address": "6c02e0c358cb",
-                    "ifIndex": 28,
-                    "vlan_vlan": 100
-                },
-                {
-                    "mac_address": "788c7749ecc5",
-                    "ifIndex": 28,
-                    "vlan_vlan": 100
-                },
-                {
-                    "mac_address": "80e82c068589",
-                    "ifIndex": 28,
-                    "vlan_vlan": 100
-                },
-                {
-                    "mac_address": "9c7bef88958b",
-                    "ifIndex": 28,
-                    "vlan_vlan": 100
-                },
-                {
-                    "mac_address": "a45d365d276a",
-                    "ifIndex": 28,
-                    "vlan_vlan": 100
-                },
-                {
-                    "mac_address": "aca88e25696c",
-                    "ifIndex": 28,
-                    "vlan_vlan": 100
-                },
-                {
-                    "mac_address": "e83935908248",
-                    "ifIndex": 28,
-                    "vlan_vlan": 100
-                },
-                {
-                    "mac_address": "0264329fbc02",
-                    "ifIndex": 28,
-                    "vlan_vlan": 200
-                },
-                {
-                    "mac_address": "b8975a7d6800",
-                    "ifIndex": 28,
-                    "vlan_vlan": 200
-                },
-                {
-                    "mac_address": "0264329fbc02",
-                    "ifIndex": 28,
-                    "vlan_vlan": 255
-                },
-                {
-                    "mac_address": "0eee779c45d9",
-                    "ifIndex": 28,
-                    "vlan_vlan": 255
-                },
-                {
-                    "mac_address": "18d6c786ac0a",
-                    "ifIndex": 28,
-                    "vlan_vlan": 255
-                },
-                {
-                    "mac_address": "5239b9929630",
-                    "ifIndex": 28,
-                    "vlan_vlan": 255
-                },
-                {
-                    "mac_address": "5cba2c26a56a",
-                    "ifIndex": 28,
-                    "vlan_vlan": 255
-                },
-                {
-                    "mac_address": "68ff7b3e6829",
-                    "ifIndex": 28,
-                    "vlan_vlan": 255
-                },
-                {
-                    "mac_address": "6c3c8c74291e",
-                    "ifIndex": 28,
-                    "vlan_vlan": 255
-                },
-                {
-                    "mac_address": "74da88682ad7",
-                    "ifIndex": 28,
-                    "vlan_vlan": 255
-                },
-                {
-                    "mac_address": "8030e03f2d40",
-                    "ifIndex": 28,
-                    "vlan_vlan": 255
-                },
-                {
-                    "mac_address": "98dac4733a5e",
-                    "ifIndex": 28,
-                    "vlan_vlan": 255
-                },
-                {
-                    "mac_address": "98dac4733a62",
-                    "ifIndex": 28,
-                    "vlan_vlan": 255
-                },
-                {
-                    "mac_address": "ac84c600cbc1",
-                    "ifIndex": 28,
-                    "vlan_vlan": 255
-                },
-                {
-                    "mac_address": "e45ad4487a80",
-                    "ifIndex": 28,
-                    "vlan_vlan": 255
-                },
-                {
-                    "mac_address": "e828c126b9c0",
-                    "ifIndex": 28,
-                    "vlan_vlan": 255
+                    "ipv4_address": "169.254.2.39",
+                    "ipv4_prefixlen": 24,
+                    "context_name": "",
+                    "ipv4_network": "169.254.2.0/24",
+                    "ifIndex": 90
                 }
             ]
         }
