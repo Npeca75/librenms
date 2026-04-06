@@ -26,9 +26,11 @@
 
 namespace LibreNMS\Modules;
 
+use App\Events\OsChangedEvent;
 use App\Facades\LibrenmsConfig;
 use App\Models\Device;
 use App\Models\Eventlog;
+use App\Observers\DeviceObserver;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use LibreNMS\Enum\Severity;
@@ -70,13 +72,26 @@ class Core implements Module
             'sysDescr' => $snmpdata['.1.3.6.1.2.1.1.1.0'] ?? null,
         ]);
 
-        foreach ($device->getDirty() as $attribute => $value) {
-            Eventlog::log($value . ' -> ' . $device->$attribute, $device, 'system', Severity::Notice);
-            $os->getDeviceArray()[$attribute] = $value; // update device array
+        foreach (['sysObjectID', 'sysName', 'sysDescr'] as $attribute) {
+            if ($device->isDirty($attribute)) {
+                $message = DeviceObserver::attributeChangedMessage($attribute, $device->$attribute, $device->getOriginal($attribute));
+                Eventlog::log($message, $device, 'system', Severity::Notice);
+                $os->getDeviceArray()[$attribute] = $device->$attribute; // update device array
+            }
         }
 
         // detect OS
         $device->os = self::detectOS($device, false);
+
+        // Set type to a predefined type for the OS if it's not user set (still could be overridden later by os discovery)
+        if (! $device->getAttrib('override_device_type')) {
+            $device->type = LibrenmsConfig::getOsSetting($device->os, 'type');
+            $os->getDeviceArray()['type'] = $device->type;
+        }
+
+        if ($device->isDirty('os')) {
+            OsChangedEvent::dispatch($device);
+        }
     }
 
     public function shouldPoll(OS $os, ModuleStatus $status): bool
@@ -190,7 +205,7 @@ class Core implements Module
      * sysObjectID if sysObjectID starts with any of the values under this item
      * sysDescr if sysDescr contains any of the values under this item
      * sysDescr_regex if sysDescr matches any of the regexes under this item
-     * snmpget perform an snmpget on `oid` and check if the result contains `value`. Other subkeys: options, mib, mibdir
+     * snmpget perform an snmpget on `oid` and check if the result contains `value`. Other subkeys: options, mib_dir
      *
      * Appending _except to any condition will invert the match.
      *
@@ -227,7 +242,7 @@ class Core implements Module
                 $get_value = SnmpQuery::device($device)
                     ->options($value['options'] ?? null)
                     ->mibDir($value['mib_dir'] ?? $mibdir)
-                    ->get(isset($value['mib']) ? "{$value['mib']}::{$value['oid']}" : $value['oid'])
+                    ->get($value['oid'])
                     ->value();
                 if (Compare::values($get_value, $value['value'], $value['op'] ?? 'contains') == $check) {
                     return false;
@@ -236,7 +251,7 @@ class Core implements Module
                 $walk_value = SnmpQuery::device($device)
                     ->options($value['options'] ?? null)
                     ->mibDir($value['mib_dir'] ?? $mibdir)
-                    ->walk(isset($value['mib']) ? "{$value['mib']}::{$value['oid']}" : $value['oid'])
+                    ->walk($value['oid'])
                     ->raw;
                 if (Compare::values($walk_value, $value['value'], $value['op'] ?? 'contains') == $check) {
                     return false;

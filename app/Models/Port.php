@@ -12,8 +12,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use LibreNMS\Util\Number;
 use LibreNMS\Util\Rewrite;
-use Permissions;
 
 class Port extends DeviceRelatedModel
 {
@@ -21,6 +21,7 @@ class Port extends DeviceRelatedModel
 
     public $timestamps = false;
     protected $primaryKey = 'port_id';
+    protected $guarded = [];
 
     /**
      * Initialize this class
@@ -50,6 +51,7 @@ class Port extends DeviceRelatedModel
             $port->vlans()->delete();
             $port->links()->delete();
             $port->remoteLinks()->delete();
+            $port->bills()->detach();
 
             // dont have relationships yet
             DB::table('juniAtmVp')->where('port_id', $port->port_id)->delete();
@@ -149,22 +151,26 @@ class Port extends DeviceRelatedModel
     }
 
     /**
-     * Check if user can access this port.
+     * Get port speeds, respecting parsed interface circuit speeds as bps
      *
-     * @param  User|int  $user
-     * @return bool
+     * @return array{int, int} [egress bps, ingress bps]
      */
-    public function canAccess($user)
+    public function getSpeeds(): array
     {
-        if (! $user) {
-            return false;
+        $egress = $ingress = (int) $this->ifSpeed;
+
+        if (! empty($this->port_descr_speed)) {
+            $speed_parts = explode('/', (string) $this->port_descr_speed, 2);
+            $parsed_egress = Number::toBytes($speed_parts[0]);
+            $parsed_ingress = isset($speed_parts[1]) ? Number::toBytes($speed_parts[1]) : $parsed_egress;
+
+            if ($parsed_egress > 0 && $parsed_ingress > 0) {
+                $egress = $parsed_egress;
+                $ingress = $parsed_ingress;
+            }
         }
 
-        if ($user->hasGlobalRead()) {
-            return true;
-        }
-
-        return Permissions::canAccessDevice($this->device_id, $user) || Permissions::canAccessPort($this->port_id, $user);
+        return [$egress, $ingress];
     }
 
     // ---- Accessors/Mutators ----
@@ -322,6 +328,14 @@ class Port extends DeviceRelatedModel
     }
 
     /**
+     * @return BelongsToMany<Bill, $this>
+     */
+    public function bills(): BelongsToMany
+    {
+        return $this->belongsToMany(Bill::class, 'bill_ports', 'port_id', 'bill_id');
+    }
+
+    /**
      * @return \Illuminate\Database\Eloquent\Relations\HasOne<\App\Models\PortVdsl, $this>
      */
     public function vdsl(): HasOne
@@ -401,6 +415,9 @@ class Port extends DeviceRelatedModel
         return $this->hasMany(Link::class, 'remote_port_id');
     }
 
+    /**
+     * @return \Illuminate\Support\Collection<int, \App\Models\Link>
+     */
     public function allLinks(): \Illuminate\Support\Collection
     {
         return $this->links->merge($this->remoteLinks);

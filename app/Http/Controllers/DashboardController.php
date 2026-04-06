@@ -40,7 +40,7 @@ use Illuminate\Support\Str;
 
 class DashboardController extends Controller
 {
-    /** @var \Illuminate\Support\Collection<\App\Models\Dashboard> */
+    /** @var \Illuminate\Support\Collection<int, \App\Models\Dashboard> */
     private $dashboards;
 
     public function __construct()
@@ -130,14 +130,14 @@ class DashboardController extends Controller
 
         $widgets = self::listWidgets();
 
-        $user_list = $user->can('manage', User::class)
+        $user_list = $user->can('viewAny', User::class)
             ? User::where('user_id', '!=', $user->user_id)
                 ->orderBy('username')
                 ->pluck('username', 'user_id')
             : [];
 
         return view('overview.default', [
-            'bare' => $request->get('bare'),
+            'bare' => $request->input('bare'),
             'dash_config' => $data,
             'dashboard' => $dashboard,
             'hide_dashboard_editor' => UserPref::getPref($user, 'hide_dashboard_editor'),
@@ -154,7 +154,7 @@ class DashboardController extends Controller
             'dashboard_name' => 'string|max:255',
         ]);
 
-        $name = trim(strip_tags((string) $request->get('dashboard_name')));
+        $name = trim(strip_tags((string) $request->input('dashboard_name')));
         $dashboard = Dashboard::create([
             'user_id' => Auth::id(),
             'dashboard_name' => $name,
@@ -201,7 +201,7 @@ class DashboardController extends Controller
             'target_user_id' => 'required|exists:App\Models\User,user_id',
         ]);
 
-        $target_user_id = $request->get('target_user_id');
+        $target_user_id = $request->input('target_user_id');
 
         $this->authorize('copy', [$dashboard, $target_user_id]);
 
@@ -256,7 +256,7 @@ class DashboardController extends Controller
 
     /**
      * @param  User  $user
-     * @return \Illuminate\Support\Collection<\App\Models\Dashboard>
+     * @return \Illuminate\Support\Collection<int, \App\Models\Dashboard>
      */
     private function getAvailableDashboards(User $user): Collection
     {

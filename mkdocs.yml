@@ -32,6 +32,7 @@ theme:
     - content.tabs.link
     - content.action.edit
     - content.code.copy
+    - search.share
 site_dir: out
 site_url: https://docs.librenms.org
 markdown_extensions:
@@ -182,6 +183,7 @@ nav:
     - Advanced Setup:
       - 1 Minute Polling: Support/1-Minute-Polling.md
       - Authentication Options: Extensions/Authentication.md
+      - Authorization: Extensions/Authorization.md
       - Auto-discovery Setup: Extensions/Auto-Discovery.md
       - Bare Dashboard: Support/Bare-Dashboard.md
       - Cleanup Options: Support/Cleanup-options.md
@@ -248,6 +250,7 @@ nav:
       - Inventory: API/Inventory.md
       - Locations: API/Locations.md
       - Logs: API/Logs.md
+      - Pollers: API/Pollers.md
       - PollerGroups: API/PollerGroups.md
       - Port_Groups: API/Port_Groups.md
       - PortGroups: API/PortGroups.md
@@ -293,6 +296,7 @@ nav:
     - SNMP Traps: Developing/SNMP-Traps.md
     - Dynamic Config: Developing/Dynamic-Config.md
     - Localization: Developing/Localization.md
+    - Time Handling: Developing/Time-Handling.md
     - Plugin System: Extensions/Plugin-System.md
     - Developer notes:
       - Merging Pull Requests: Developing/Merging-Pull-Requests.md

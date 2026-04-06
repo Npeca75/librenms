@@ -23,7 +23,10 @@
  * @copyright  2016 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
-if (! Auth::user()->hasGlobalAdmin()) {
+
+use App\Facades\LibrenmsConfig;
+
+if (\Illuminate\Support\Facades\Gate::denies('debug', \App\Models\Device::class)) {
     echo 'Insufficient Privileges';
     exit;
 }
@@ -54,7 +57,7 @@ switch ($type) {
 
 // ---- Output ----
 $proc = new \Symfony\Component\Process\Process($cmd);
-$proc->setTimeout(Config::get('snmp.exec_timeout', 1200));
+$proc->setTimeout(LibrenmsConfig::get('snmp.exec_timeout', 1200));
 
 if ($_GET['format'] == 'text') {
     header('Content-type: text/plain');

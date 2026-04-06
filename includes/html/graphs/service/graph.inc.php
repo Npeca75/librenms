@@ -47,11 +47,9 @@ if (is_file($check_script)) {
 }
 
 include 'includes/html/graphs/common.inc.php';
-$rrd_options[] = '-l';
-$rrd_options[] = '0';
-$rrd_options[] = '-E';
+$graph_params->scale_min = 0;
+
 $rrd_options[] = 'COMMENT:                      Now     Avg      Max\\n';
-$rrd_additions = '';
 
 // Remove encoded characters
 $services[$vars['service']]['service_ds'] = htmlspecialchars_decode((string) $services[$vars['service']]['service_ds']);
@@ -69,12 +67,12 @@ if ($services[$vars['service']]['service_ds'] != '') {
 
     // Need: DS name, Label
     $ds = $vars['ds'];
-    $label = $graphinfo[$vars['ds']];
+    // use is_array for backwards compatibility
+    $label = (is_array($graphinfo[$vars['ds']]) ? $graphinfo[$vars['ds']]['uom'] : $graphinfo[$vars['ds']]);
 
     if (Rrd::checkRrdExists($rrd_filename)) {
         if (isset($check_graph)) {
-            // We have a graph definition, use it.
-            $rrd_additions .= $check_graph[$ds];
+            $rrd_options = $check_graph[$ds];
         } else {
             // Build the graph ourselves
             if (preg_match('/loss/i', (string) $ds)) {

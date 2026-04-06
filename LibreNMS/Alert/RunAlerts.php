@@ -34,9 +34,12 @@ namespace LibreNMS\Alert;
 use App\Facades\DeviceCache;
 use App\Facades\LibrenmsConfig;
 use App\Facades\Rrd;
+use App\Models\Alert;
 use App\Models\AlertTransport;
 use App\Models\ApplicationMetric;
 use App\Models\Eventlog;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use LibreNMS\Alerting\QueryBuilderParser;
 use LibreNMS\Enum\AlertState;
 use LibreNMS\Enum\MaintenanceStatus;
@@ -233,7 +236,7 @@ class RunAlerts
         $sql = 'SELECT `alerts`.`id` AS `alert_id`, `devices`.`hostname` AS `hostname` FROM `alerts` LEFT JOIN `devices` ON `alerts`.`device_id`=`devices`.`device_id`  RIGHT JOIN `alert_rules` ON `alerts`.`rule_id`=`alert_rules`.`id` WHERE `alerts`.`state`!=' . AlertState::CLEAR . ' AND `devices`.`hostname` IS NULL';
         foreach (dbFetchRows($sql) as $alert) {
             if (empty($alert['hostname']) && isset($alert['alert_id'])) {
-                dbDelete('alerts', '`id` = ?', [$alert['alert_id']]);
+                \App\Models\Alert::where('id', $alert['alert_id'])->delete();
                 echo "Stale-alert: #{$alert['alert_id']}" . PHP_EOL;
             }
         }
@@ -471,7 +474,7 @@ class RunAlerts
             if (empty($alert['rule_id']) || ! $this->isRuleValid($alert_status['device_id'], $alert_status['rule_id'])) {
                 echo 'Stale-Rule: #' . $alert_status['rule_id'] . '/' . $alert_status['device_id'] . "\r\n";
                 // Alert-Rule does not exist anymore, let's remove the alert-state.
-                dbDelete('alerts', 'rule_id = ? && device_id = ?', [$alert_status['rule_id'], $alert_status['device_id']]);
+                \App\Models\Alert::where('rule_id', $alert_status['rule_id'])->where('device_id', $alert_status['device_id'])->delete();
             } else {
                 $alert['state'] = $alert_status['state'];
                 $alert['alerted'] = $alert_status['alerted'];
@@ -509,9 +512,18 @@ class RunAlerts
                 $alert['details']['count'] = 0;
             }
 
-            $chk = dbFetchRow('SELECT alerts.alerted,devices.ignore,devices.disabled FROM alerts,devices WHERE alerts.device_id = ? && devices.device_id = alerts.device_id && alerts.rule_id = ?', [$alert['device_id'], $alert['rule_id']]);
+            $status_check = DB::table('devices')
+                ->where('device_id', $alert['device_id'])
+                ->first(['ignore', 'disabled']);
 
-            if ($chk['alerted'] == $alert['state']) {
+            if ($status_check === null) {
+                Log::warning("Alert #{$alert['id']} references non-existent device {$alert['device_id']}, cleaning up");
+                Alert::query()->where('id', $alert['id'])->delete();
+
+                continue;
+            }
+
+            if ($alert['alerted'] == $alert['state']) {
                 $noiss = true;
             }
 
@@ -561,7 +573,7 @@ class RunAlerts
                     $noiss = false;
                 }
             }
-            if ($chk['ignore'] == 1 || $chk['disabled'] == 1) {
+            if ($status_check->ignore || $status_check->disabled) {
                 $noiss = true;
                 $updet = false;
                 $noacc = false;
@@ -569,13 +581,13 @@ class RunAlerts
 
             $maintenance_status = AlertUtil::getMaintenanceStatus($alert['device_id']);
             // Do not send alert notifications for these types of scheduled maintenance
-            if ($maintenance_status == MaintenanceStatus::MUTE_ALERTS) {
+            if ($maintenance_status == MaintenanceStatus::MuteAlerts) {
                 $noiss = true;
             }
 
             // If alert rule checks are to be skipped, ensure that this alert is
             // not to be handled again by this method again (by changing open to 0 later)
-            if ($maintenance_status == MaintenanceStatus::SKIP_ALERTS) {
+            if ($maintenance_status == MaintenanceStatus::SkipAlerts) {
                 $noiss = true;
                 $noacc = true;
             }

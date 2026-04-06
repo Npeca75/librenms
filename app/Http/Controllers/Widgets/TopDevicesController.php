@@ -85,7 +85,7 @@ class TopDevicesController extends WidgetController
 
     /**
      * @param  array|string  $headers
-     * @param  Collection  $rows
+     * @param  Collection<int, mixed>  $rows
      * @return array
      */
     private function formatData($headers, $rows)
@@ -281,7 +281,7 @@ class TopDevicesController extends WidgetController
                 Str::limit($storage->storage_descr, 50),
                 Url::overlibLink(
                     $link,
-                    Html::percentageBar(150, 20, $storage->storage_perc, '', $storage->storage_perc . '%', $storage->storage_perc_warn),
+                    Html::percentageBar(150, 10, $storage->storage_perc, '', $storage->storage_perc . '%', $storage->storage_perc_warn),
                     $overlib_content
                 ),
             ];

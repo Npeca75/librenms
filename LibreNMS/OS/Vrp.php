@@ -48,6 +48,7 @@ use Illuminate\Support\Str;
 use LibreNMS\DB\SyncsModels;
 use LibreNMS\Device\Processor;
 use LibreNMS\Device\WirelessSensor;
+use LibreNMS\Enum\WirelessSensorType;
 use LibreNMS\Interfaces\Data\DataStorageInterface;
 use LibreNMS\Interfaces\Discovery\FdbTableDiscovery;
 use LibreNMS\Interfaces\Discovery\MempoolsDiscovery;
@@ -540,7 +541,7 @@ class Vrp extends OS implements
         $ap_number = snmpwalk_cache_oid($this->getDeviceArray(), 'hwWlanCurJointApNum.0', [], 'HUAWEI-WLAN-GLOBAL-MIB');
 
         $sensors[] = new WirelessSensor(
-            'ap-count',
+            WirelessSensorType::ApCount,
             $this->getDeviceId(),
             '.1.3.6.1.4.1.2011.6.139.12.1.2.1.0',
             'vrp-ap-count',
@@ -577,7 +578,7 @@ class Vrp extends OS implements
                 $ssid_oid_array[] = $oid;
                 $ssid_total_oid_array[] = $oid;
                 $sensors[] = new WirelessSensor(
-                    'clients',
+                    WirelessSensorType::Clients,
                     $this->getDeviceId(),
                     $oid,
                     'vrpi-clients',
@@ -592,7 +593,7 @@ class Vrp extends OS implements
 
             // And we add a sensor with all frequencies for each SSID
             $sensors[] = new WirelessSensor(
-                'clients',
+                WirelessSensorType::Clients,
                 $this->getDeviceId(),
                 $ssid_oid_array,
                 'vrp-clients',
@@ -607,7 +608,7 @@ class Vrp extends OS implements
         if (count($ssid_total_oid_array) > 0) {
             // We have at least 1 SSID, so we can count the total of STA
             $sensors[] = new WirelessSensor(
-                'clients',
+                WirelessSensorType::Clients,
                 $this->getDeviceId(),
                 $ssid_total_oid_array,
                 'vrp-clients',
