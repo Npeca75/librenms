@@ -80,7 +80,7 @@ class Bdcom extends OS implements TransceiverDiscovery, LinkDiscovery
             foreach ($lldp_array_inner as $lldp) {
                 $interface = PortCache::getByIfIndex($lldp['lldpRemLocalPortNum'] ?? null, $this->getDeviceId());
                 $remote_device_id = find_device_id($lldp['lldpRemSysName'] ?? null);
-                if ($interface['port_id'] && $lldp['lldpRemSysName'] && $lldp['lldpRemPortId']) {
+                if (isset($interface['port_id']) && $lldp['lldpRemSysName'] && $lldp['lldpRemPortId']) {
                     $remote_port_id = find_port_id($lldp['lldpRemPortDesc'], $lldp['lldpRemPortId'], $remote_device_id);
                     $links->push(new Link([
                         'local_port_id' => $interface['port_id'],
