@@ -88,8 +88,8 @@ class Cisco extends OS implements
     StorageDiscovery,
     TransceiverDiscovery,
     VlanDiscovery,
-    VlanPortDiscovery
-    LinkDiscovery,
+    VlanPortDiscovery,
+    LinkDiscovery
 {
     use YamlOSDiscovery {
         YamlOSDiscovery::discoverOS as discoverYamlOS;
