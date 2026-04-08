@@ -75,16 +75,16 @@ class InventoryController extends TableController
             ->select(['entPhysical_id', 'device_id', 'entPhysicalDescr', 'entPhysicalName', 'entPhysicalModelName', 'entPhysicalSerialNum']);
 
         // apply specific field filters
-        $this->search($request->get('descr'), $query, ['entPhysicalDescr']);
-        $this->search($request->get('model'), $query, ['entPhysicalModelName']);
-        $this->search($request->get('serial'), $query, ['entPhysicalSerialNum']);
+        $this->search($request->input('descr'), $query, ['entPhysicalDescr']);
+        $this->search($request->input('model'), $query, ['entPhysicalModelName']);
+        $this->search($request->input('serial'), $query, ['entPhysicalSerialNum']);
 
         return $query;
     }
 
     /**
      * @param  EntPhysical  $entPhysical
-     * @return array|Model|Collection
+     * @return array|Model|Collection<string, mixed>
      */
     public function formatItem($entPhysical)
     {

@@ -45,6 +45,7 @@ use App\Models\MplsTunnelCHop;
 use App\Models\Transceiver;
 use Illuminate\Support\Collection;
 use LibreNMS\Device\WirelessSensor;
+use LibreNMS\Enum\WirelessSensorType;
 use LibreNMS\Exceptions\InvalidIpException;
 use LibreNMS\Interfaces\Discovery\LinkDiscovery;
 use LibreNMS\Interfaces\Discovery\MplsDiscovery;
@@ -113,7 +114,7 @@ class Timos extends OS implements
         foreach ($snmp as $index => $data) {
             if (isset($data['ALU-MICROWAVE-MIB::aluMwRadioLocalRxMainPower'])) {
                 $sensors[] = new WirelessSensor(
-                    'power',
+                    WirelessSensorType::Power,
                     $this->getDeviceId(),
                     '.1.3.6.1.4.1.6527.6.1.2.2.7.1.3.1.2.' . $index,
                     'Nokia-Packet-MW-Rx',
@@ -129,7 +130,7 @@ class Timos extends OS implements
         foreach ($snmp as $index => $data) {
             if (isset($data['ALU-MICROWAVE-MIB::aluMwRadioLocalTxPower'])) {
                 $sensors[] = new WirelessSensor(
-                    'power',
+                    WirelessSensorType::Power,
                     $this->getDeviceId(),
                     '.1.3.6.1.4.1.6527.6.1.2.2.7.1.3.1.1.' . $index,
                     'Nokia-Packet-MW-Tx',
@@ -799,7 +800,7 @@ class Timos extends OS implements
         foreach ($data as $index => $entry) {
             if (isset($entry['TIMETRA-CELLULAR-MIB::tmnxCellPortSinr'])) {
                 $sensors[] = new WirelessSensor(
-                    'snr',
+                    WirelessSensorType::Snr,
                     $this->getDeviceId(),
                     '.1.3.6.1.4.1.6527.3.1.2.109.3.1.1.1.12.' . $index,
                     'timos',
@@ -825,7 +826,7 @@ class Timos extends OS implements
         foreach ($data as $index => $entry) {
             if (isset($entry['TIMETRA-CELLULAR-MIB::tmnxCellPortRsrq'])) {
                 $sensors[] = new WirelessSensor(
-                    'rsrq',
+                    WirelessSensorType::Rsrq,
                     $this->getDeviceId(),
                     '.1.3.6.1.4.1.6527.3.1.2.109.3.1.1.1.11.' . $index,
                     'timos',
@@ -849,7 +850,7 @@ class Timos extends OS implements
         foreach ($data as $index => $entry) {
             if (isset($entry['TIMETRA-CELLULAR-MIB::tmnxCellPortRssi'])) {
                 $sensors[] = new WirelessSensor(
-                    'rssi',
+                    WirelessSensorType::Rssi,
                     $this->getDeviceId(),
                     '.1.3.6.1.4.1.6527.3.1.2.109.3.1.1.1.8.' . $index,
                     'timos',
@@ -873,7 +874,7 @@ class Timos extends OS implements
         foreach ($data as $index => $entry) {
             if (isset($entry['TIMETRA-CELLULAR-MIB::tmnxCellPortRsrp'])) {
                 $sensors[] = new WirelessSensor(
-                    'rsrp',
+                    WirelessSensorType::Rsrp,
                     $this->getDeviceId(),
                     '.1.3.6.1.4.1.6527.3.1.2.109.3.1.1.1.9.' . $index,
                     'timos',
@@ -897,7 +898,7 @@ class Timos extends OS implements
         foreach ($data as $index => $entry) {
             if (isset($entry['TIMETRA-CELLULAR-MIB::tmnxCellPortChannelNumber'])) {
                 $sensors[] = new WirelessSensor(
-                    'channel',
+                    WirelessSensorType::Channel,
                     $this->getDeviceId(),
                     '.1.3.6.1.4.1.6527.3.1.2.109.3.1.1.1.5.' . $index,
                     'timos',
@@ -1069,20 +1070,6 @@ class Timos extends OS implements
                 default => null,
             };
 
-            // Parse manufacture date if available (DateAndTime OCTET STRING format)
-            // DateAndTime is an 8 or 11 byte OCTET STRING:
-            // Bytes 1-2: Year (big endian), Byte 3: Month, Byte 4: Day
-            $date = null;
-            $rawDate = $data['TIMETRA-PORT-MIB::tmnxPortSFPVendorManufactureDate'] ?? null;
-            if ($rawDate && strlen($rawDate) >= 4) {
-                $bytes = unpack('nyear/Cmonth/Cday', $rawDate);
-                if ($bytes && $bytes['year'] >= 1970 && $bytes['year'] <= 2100
-                    && $bytes['month'] >= 1 && $bytes['month'] <= 12
-                    && $bytes['day'] >= 1 && $bytes['day'] <= 31) {
-                    $date = sprintf('%04d-%02d-%02d', $bytes['year'], $bytes['month'], $bytes['day']);
-                }
-            }
-
             return new Transceiver([
                 'port_id' => (int) PortCache::getIdFromIfIndex($ifIndex, $this->getDevice()),
                 'index' => "$chassisIndex.$portId",
@@ -1092,7 +1079,7 @@ class Timos extends OS implements
                 'oui' => $data['TIMETRA-PORT-MIB::tmnxPortSFPVendorOUI'] ?? null,
                 'model' => $data['TIMETRA-PORT-MIB::tmnxPortTransceiverModelNumber'] ?? $data['TIMETRA-PORT-MIB::tmnxPortSFPVendorPartNum'] ?? null,
                 'serial' => $data['TIMETRA-PORT-MIB::tmnxPortSFPVendorSerialNum'] ?? null,
-                'date' => $date,
+                'date' => $data['TIMETRA-PORT-MIB::tmnxPortSFPVendorManufactureDate'] ?? null,
                 'ddm' => $ddm,
                 'connector' => $connector,
                 'wavelength' => $wavelength > 0 ? $wavelength : null,

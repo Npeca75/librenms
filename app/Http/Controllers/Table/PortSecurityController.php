@@ -69,8 +69,8 @@ class PortSecurityController extends TableController
      */
     protected function search($search, $query, $fields = [])
     {
-        if ($search = trim(\Request::get('searchPhrase') ?? '')) {
-            return match (\Request::get('searchby') ?? '') {
+        if ($search = trim(\Request::input('searchPhrase') ?? '')) {
+            return match (\Request::input('searchby') ?? '') {
                 'device' => $query->whereHas('device', function ($q) use ($search): void {
                     $q->where('hostname', 'like', "%$search%");
                 }),
@@ -112,7 +112,7 @@ class PortSecurityController extends TableController
      */
     public function sort($request, $query)
     {
-        $sort = $request->get('sort');
+        $sort = $request->input('sort');
 
         if (isset($sort['device'])) {
             $query->leftJoin('devices', 'port_security.device_id', 'devices.device_id')

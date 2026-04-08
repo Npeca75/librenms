@@ -77,7 +77,7 @@ abstract class WidgetController extends Controller
 
     public function __invoke(Request $request): JsonResponse
     {
-        $this->show_settings = (bool) $request->get('settings');
+        $this->show_settings = (bool) $request->input('settings');
         $title = $this->getTitle();
 
         if ($this->show_settings) {
@@ -120,7 +120,7 @@ abstract class WidgetController extends Controller
     public function getSettings($settingsView = false): array
     {
         if (is_null($this->settings)) {
-            $id = \Request::get('id');
+            $id = \Request::input('id');
             $widget = UserWidget::find($id);
             $this->defaults['refresh'] ??= 60;
             $this->settings = array_replace($this->defaults, $widget ? (array) $widget->settings : []);

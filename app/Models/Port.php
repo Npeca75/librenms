@@ -14,7 +14,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use LibreNMS\Util\Number;
 use LibreNMS\Util\Rewrite;
-use Permissions;
 
 class Port extends DeviceRelatedModel
 {
@@ -22,6 +21,7 @@ class Port extends DeviceRelatedModel
 
     public $timestamps = false;
     protected $primaryKey = 'port_id';
+    protected $guarded = [];
 
     /**
      * Initialize this class
@@ -51,6 +51,7 @@ class Port extends DeviceRelatedModel
             $port->vlans()->delete();
             $port->links()->delete();
             $port->remoteLinks()->delete();
+            $port->bills()->detach();
 
             // dont have relationships yet
             DB::table('juniAtmVp')->where('port_id', $port->port_id)->delete();
@@ -152,25 +153,6 @@ class Port extends DeviceRelatedModel
         }
 
         return [$egress, $ingress];
-    }
-
-    /**
-     * Check if user can access this port.
-     *
-     * @param  User|int  $user
-     * @return bool
-     */
-    public function canAccess($user)
-    {
-        if (! $user) {
-            return false;
-        }
-
-        if ($user->hasGlobalRead()) {
-            return true;
-        }
-
-        return Permissions::canAccessDevice($this->device_id, $user) || Permissions::canAccessPort($this->port_id, $user);
     }
 
     // ---- Accessors/Mutators ----
@@ -328,6 +310,14 @@ class Port extends DeviceRelatedModel
     }
 
     /**
+     * @return BelongsToMany<Bill, $this>
+     */
+    public function bills(): BelongsToMany
+    {
+        return $this->belongsToMany(Bill::class, 'bill_ports', 'port_id', 'bill_id');
+    }
+
+    /**
      * @return \Illuminate\Database\Eloquent\Relations\HasOne<\App\Models\PortVdsl, $this>
      */
     public function vdsl(): HasOne
@@ -407,6 +397,9 @@ class Port extends DeviceRelatedModel
         return $this->hasMany(Link::class, 'remote_port_id');
     }
 
+    /**
+     * @return \Illuminate\Support\Collection<int, \App\Models\Link>
+     */
     public function allLinks(): \Illuminate\Support\Collection
     {
         return $this->links->merge($this->remoteLinks);
